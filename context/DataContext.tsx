@@ -1,14 +1,15 @@
 
 import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback } from 'react';
-import { Task, Sprint, Status, AppData } from '../types';
+import { Task, Sprint, Status, AppData, Priority } from '../types';
 
 interface DataContextType {
   tasks: Task[];
   sprints: Sprint[];
-  addTask: (taskData: Omit<Task, 'id' | 'createdAt' | 'startDate' | 'status' | 'comments' | 'completionPercent' | 'completeDate'> & { sprintId: string | null, completionPercent?: number }) => void;
+  addTask: (taskData: Omit<Task, 'id' | 'createdAt' | 'startDate' | 'status' | 'comments' | 'completionPercent' | 'completeDate'> & { sprintId: string | null, completionPercent?: number, priority?: Priority }) => void;
   updateTask: (taskId: string, updatedData: Partial<Task>) => void;
   deleteTask: (taskId:string) => void;
   addSprint: (sprintData: Omit<Sprint, 'id'>) => Sprint;
+  deleteSprint: (sprintId: string) => void;
   getTasksForSprint: (sprintId: string | null) => Task[];
   getBacklogTasks: () => Task[];
   importData: (data: AppData) => void;
@@ -24,7 +25,7 @@ const getInitialState = <T,>(key: string, fallback: T): T => {
     
     const parsed = JSON.parse(item);
 
-    // Simple migration for tasks to add comments/completionPercent field if missing
+    // Simple migration for tasks to add comments/completionPercent/priority field if missing
     if (key === 'tasks' && Array.isArray(parsed)) {
         return parsed.map((task: any) => ({
             ...task,
@@ -33,6 +34,7 @@ const getInitialState = <T,>(key: string, fallback: T): T => {
               ? Math.min(100, Math.max(0, task.completionPercent)) 
               : 0,
             completeDate: task.completeDate ?? null,
+            priority: task.priority === Priority.Yes ? Priority.Yes : Priority.No,
         })) as T;
     }
     return parsed;
@@ -62,7 +64,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [sprints]);
 
-  const addTask = useCallback((taskData: Omit<Task, 'id' | 'createdAt' | 'startDate' | 'status' | 'comments' | 'completionPercent' | 'completeDate'> & { sprintId: string | null, completionPercent?: number }) => {
+  const addTask = useCallback((taskData: Omit<Task, 'id' | 'createdAt' | 'startDate' | 'status' | 'comments' | 'completionPercent' | 'completeDate'> & { sprintId: string | null, completionPercent?: number, priority?: Priority }) => {
     const now = new Date().toISOString();
     const completionPercent = Math.min(100, Math.max(0, taskData.completionPercent ?? 0));
     const completionDate = completionPercent >= 100 ? now.split('T')[0] : null;
@@ -74,6 +76,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       comments: '',
       completionPercent,
       completeDate: completionDate,
+      priority: taskData.priority ?? Priority.No,
       ...taskData,
     };
     setTasks(prev => [...prev, newTask]);
@@ -93,7 +96,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const completeDate = isNowDone
         ? (updatedData.completeDate ?? task.completeDate ?? new Date().toISOString().split('T')[0])
         : (updatedData.completeDate ?? null);
-      return { ...task, ...updatedData, completionPercent, status: nextStatus, completeDate };
+      const nextPriority = updatedData.priority ?? task.priority ?? Priority.No;
+      return { ...task, ...updatedData, completionPercent, status: nextStatus, completeDate, priority: nextPriority };
     }));
   }, []);
 
@@ -108,6 +112,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
     setSprints(prev => [...prev, newSprint].sort((a,b) => a.name.localeCompare(b.name)));
     return newSprint;
+  }, []);
+
+  const deleteSprint = useCallback((sprintId: string) => {
+    setSprints(prev => prev.filter(s => s.id !== sprintId));
+    setTasks(prev => prev.map(task => task.sprintId === sprintId ? { ...task, sprintId: null } : task));
   }, []);
 
   const getTasksForSprint = useCallback((sprintId: string | null) => {
@@ -133,7 +142,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [tasks, sprints]);
 
   return (
-    <DataContext.Provider value={{ tasks, sprints, addTask, updateTask, deleteTask, addSprint, getTasksForSprint, getBacklogTasks, importData, exportData }}>
+    <DataContext.Provider value={{ tasks, sprints, addTask, updateTask, deleteTask, addSprint, deleteSprint, getTasksForSprint, getBacklogTasks, importData, exportData }}>
       {children}
     </DataContext.Provider>
   );

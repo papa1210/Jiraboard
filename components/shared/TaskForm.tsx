@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useData } from '../../context/DataContext';
-import { Task, Sprint, Status } from '../../types';
+import { Task, Sprint, Status, Priority } from '../../types';
 
 interface TaskFormProps {
     initialData: Partial<Task>;
@@ -16,6 +16,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
         description: '',
         sprintId: null,
         status: Status.ToDo,
+        priority: Priority.No,
         startDate: new Date().toISOString().split('T')[0],
         comments: '',
         completionPercent: 0,
@@ -29,6 +30,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
             description: '',
             sprintId: null,
             status: Status.ToDo,
+            priority: Priority.No,
             startDate: new Date().toISOString().split('T')[0],
             comments: '',
             completionPercent: 0,
@@ -44,6 +46,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
             setFormData(prev => ({ ...prev, [name]: numericValue }));
         } else if (name === 'completeDate') {
             setFormData(prev => ({ ...prev, [name]: value || null }));
+        } else if (name === 'priority') {
+            setFormData(prev => ({ ...prev, [name]: value as Priority }));
         } else {
             setFormData(prev => ({ ...prev, [name]: value }));
         }
@@ -64,6 +68,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
                 description: formData.description!,
                 sprintId: formData.sprintId || null,
                 completionPercent: formData.completionPercent ?? 0,
+                priority: formData.priority ?? Priority.No,
             });
             onTaskCreated?.();
         }
@@ -139,6 +144,18 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
                             </select>
                         </div>
                         <div>
+                            <label className="block text-sm font-medium" style={{color: '#000'}}>Priority</label>
+                            <select
+                                name="priority"
+                                value={formData.priority || Priority.No}
+                                onChange={handleChange}
+                                className="w-full mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                            >
+                                <option value={Priority.No}>No</option>
+                                <option value={Priority.Yes}>Yes</option>
+                            </select>
+                        </div>
+                        <div>
                             <label className="block text-sm font-medium" style={{color: '#000'}}>Completion %</label>
                             <input
                                 type="number"
@@ -207,6 +224,18 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
                             onChange={handleChange}
                             className="w-full mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
                         />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium" style={{color: '#000'}}>Priority</label>
+                        <select
+                            name="priority"
+                            value={formData.priority || Priority.No}
+                            onChange={handleChange}
+                            className="w-full mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                        >
+                            <option value={Priority.No}>No</option>
+                            <option value={Priority.Yes}>Yes</option>
+                        </select>
                     </div>
                     <div>
                         <label className="block text-sm font-medium" style={{color: '#000'}}>Sprint</label>

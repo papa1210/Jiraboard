@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { KANBAN_COLUMNS } from '../../constants';
-import { Status, Task } from '../../types';
+import { Status, Task, Priority } from '../../types';
 import KanbanColumn from './KanbanColumn';
 import TaskModal from './TaskModal';
 
@@ -15,6 +15,13 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ sprintId }) => {
     const [editingTask, setEditingTask] = useState<Task | null>(null);
 
     const tasks = getTasksForSprint(sprintId);
+
+    const sortTasks = (list: Task[]) => {
+        return [...list].sort((a, b) => {
+            if (a.priority === b.priority) return 0;
+            return a.priority === Priority.Yes ? -1 : 1;
+        });
+    };
 
     const handleDrop = (taskId: string, newStatus: Status) => {
         if (newStatus === Status.Done) {
@@ -34,7 +41,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ sprintId }) => {
                 <KanbanColumn
                     key={status}
                     status={status}
-                    tasks={tasks.filter(t => t.status === status)}
+                    tasks={sortTasks(tasks.filter(t => t.status === status))}
                     onDrop={handleDrop}
                     onTaskClick={handleTaskClick}
                 />

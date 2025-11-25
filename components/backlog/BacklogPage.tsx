@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
-import { Task, Status } from '../../types';
+import { Task, Status, Priority } from '../../types';
 import TaskForm from '../shared/TaskForm';
 import Modal from '../ui/Modal';
 
@@ -11,9 +11,18 @@ const BacklogPage: React.FC = () => {
     const [editingTask, setEditingTask] = useState<Task | null>(null);
 
     const filteredTasks = useMemo(() => {
-        return tasks.filter(task =>
-            task.taskId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            task.description.toLowerCase().includes(searchTerm.toLowerCase())
+        const lower = searchTerm.toLowerCase();
+        const sorted = [...tasks].sort((a, b) => {
+            if (a.sprintId === b.sprintId) {
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            }
+            if (a.sprintId === null) return 1;
+            if (b.sprintId === null) return -1;
+            return a.sprintId.localeCompare(b.sprintId);
+        });
+        return sorted.filter(task =>
+            task.taskId.toLowerCase().includes(lower) ||
+            task.description.toLowerCase().includes(lower)
         );
     }, [tasks, searchTerm]);
 
@@ -73,13 +82,16 @@ const BacklogPage: React.FC = () => {
                         {filteredTasks.map(task => (
                             <tr key={task.id} className="hover:bg-[#F4F5F7]">
                                 <td className="p-4 whitespace-nowrap text-[#172B4D] font-medium">
-                                    <button
-                                        type="button"
-                                        onClick={() => setEditingTask(task)}
-                                        className="text-left hover:text-[#0052CC] focus:outline-none focus:underline"
-                                    >
-                                        {task.taskId}
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditingTask(task)}
+                                            className="text-left hover:text-[#0052CC] focus:outline-none focus:underline"
+                                        >
+                                            {task.taskId}
+                                        </button>
+                                        {task.priority === Priority.Yes && <span title="Priority" className="text-[#FF5630]">★</span>}
+                                    </div>
                                 </td>
                                 <td className="p-4 text-[#172B4D] max-w-sm truncate">
                                     <button

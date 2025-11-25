@@ -1,5 +1,5 @@
 import React from 'react';
-import { Task } from '../../types';
+import { Task, Priority } from '../../types';
 
 interface TaskCardProps {
     task: Task;
@@ -29,7 +29,14 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onClick }) => {
             onClick={onClick}
             className="bg-white rounded-md p-4 shadow-sm cursor-pointer hover:bg-[#DEEBFF] transition-all duration-200 transform hover:-translate-y-1 border border-[#DFE1E6]"
         >
-            <p className="font-semibold text-[#172B4D] mb-2">{task.taskId}</p>
+            <div className="flex items-start gap-2 mb-2">
+                <p className="font-semibold text-[#172B4D] flex-1">{task.taskId}</p>
+                {task.priority === Priority.Yes && (
+                    <span title="Priority" className="text-[#FF5630]">
+                        ★
+                    </span>
+                )}
+            </div>
             <p className="text-sm text-[#5E6C84] line-clamp-2">{task.description}</p>
             <div className="mt-3 text-xs text-[#5E6C84] flex items-center justify-between gap-4">
                 <p>Start Date: {task.startDate ? new Date(task.startDate).toLocaleDateString() : 'Not set'}</p>

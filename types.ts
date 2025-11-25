@@ -5,11 +5,17 @@ export enum Status {
   Done = 'Done',
 }
 
+export enum Priority {
+  Yes = 'Yes',
+  No = 'No',
+}
+
 export interface Task {
   id: string;
   taskId: string;
   description: string;
   status: Status;
+  priority: Priority;
   createdAt: string;
   sprintId: string | null;
   startDate: string;
