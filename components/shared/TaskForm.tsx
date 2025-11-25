@@ -18,6 +18,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
         status: Status.ToDo,
         startDate: new Date().toISOString().split('T')[0],
         comments: '',
+        completionPercent: 0,
         ...initialData
     });
     
@@ -29,13 +30,19 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
             status: Status.ToDo,
             startDate: new Date().toISOString().split('T')[0],
             comments: '',
+            completionPercent: 0,
             ...initialData
         });
     }, [initialData]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        if (name === 'completionPercent') {
+            const numericValue = Math.max(0, Math.min(100, Number(value)));
+            setFormData(prev => ({ ...prev, [name]: numericValue }));
+        } else {
+            setFormData(prev => ({ ...prev, [name]: value }));
+        }
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -52,6 +59,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
                 taskId: formData.taskId!,
                 description: formData.description!,
                 sprintId: formData.sprintId || null,
+                completionPercent: formData.completionPercent ?? 0,
             });
             onTaskCreated?.();
         }
@@ -127,6 +135,18 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
                             </select>
                         </div>
                         <div>
+                            <label className="block text-sm font-medium" style={{color: '#000'}}>Completion %</label>
+                            <input
+                                type="number"
+                                name="completionPercent"
+                                min={0}
+                                max={100}
+                                value={formData.completionPercent ?? 0}
+                                onChange={handleChange}
+                                className="w-full mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                            />
+                        </div>
+                        <div>
                             <label className="block text-sm font-medium" style={{color: '#000'}}>Start Date</label>
                             <input
                                 type="date"
@@ -160,6 +180,18 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
                             rows={4}
                             className="w-full mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
                             required
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium" style={{color: '#000'}}>Completion %</label>
+                        <input
+                            type="number"
+                            name="completionPercent"
+                            min={0}
+                            max={100}
+                            value={formData.completionPercent ?? 0}
+                            onChange={handleChange}
+                            className="w-full mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
                         />
                     </div>
                     <div>

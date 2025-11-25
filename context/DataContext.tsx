@@ -5,7 +5,7 @@ import { Task, Sprint, Status, AppData } from '../types';
 interface DataContextType {
   tasks: Task[];
   sprints: Sprint[];
-  addTask: (taskData: Omit<Task, 'id' | 'createdAt' | 'startDate' | 'status' | 'comments'> & { sprintId: string | null }) => void;
+  addTask: (taskData: Omit<Task, 'id' | 'createdAt' | 'startDate' | 'status' | 'comments' | 'completionPercent'> & { sprintId: string | null, completionPercent?: number }) => void;
   updateTask: (taskId: string, updatedData: Partial<Task>) => void;
   deleteTask: (taskId:string) => void;
   addSprint: (sprintData: Omit<Sprint, 'id'>) => Sprint;
@@ -24,11 +24,14 @@ const getInitialState = <T,>(key: string, fallback: T): T => {
     
     const parsed = JSON.parse(item);
 
-    // Simple migration for tasks to add comments field if it doesn't exist
+    // Simple migration for tasks to add comments/completionPercent field if missing
     if (key === 'tasks' && Array.isArray(parsed)) {
         return parsed.map((task: any) => ({
             ...task,
             comments: task.comments || '',
+            completionPercent: typeof task.completionPercent === 'number' 
+              ? Math.min(100, Math.max(0, task.completionPercent)) 
+              : 0,
         })) as T;
     }
     return parsed;
@@ -58,21 +61,30 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [sprints]);
 
-  const addTask = useCallback((taskData: Omit<Task, 'id' | 'createdAt' | 'startDate' | 'status' | 'comments'> & { sprintId: string | null }) => {
+  const addTask = useCallback((taskData: Omit<Task, 'id' | 'createdAt' | 'startDate' | 'status' | 'comments' | 'completionPercent'> & { sprintId: string | null, completionPercent?: number }) => {
     const now = new Date().toISOString();
+    const completionPercent = Math.min(100, Math.max(0, taskData.completionPercent ?? 0));
     const newTask: Task = {
       id: `task-${Date.now()}`,
       createdAt: now,
       startDate: now.split('T')[0],
-      status: Status.ToDo,
+      status: completionPercent >= 100 ? Status.Done : Status.ToDo,
       comments: '',
+      completionPercent,
       ...taskData,
     };
     setTasks(prev => [...prev, newTask]);
   }, []);
 
   const updateTask = useCallback((taskId: string, updatedData: Partial<Task>) => {
-    setTasks(prev => prev.map(task => task.id === taskId ? { ...task, ...updatedData } : task));
+    setTasks(prev => prev.map(task => {
+      if (task.id !== taskId) return task;
+      const completionPercent = updatedData.completionPercent !== undefined
+        ? Math.min(100, Math.max(0, updatedData.completionPercent))
+        : task.completionPercent;
+      const nextStatus = completionPercent >= 100 ? Status.Done : (updatedData.status ?? task.status);
+      return { ...task, ...updatedData, completionPercent, status: nextStatus };
+    }));
   }, []);
 
   const deleteTask = useCallback((taskId: string) => {

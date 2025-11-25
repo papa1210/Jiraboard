@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { Status } from '../../types';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -18,11 +18,22 @@ const StatCard = ({ title, value, color, icon }: { title: string, value: number,
 
 
 const DashboardPage: React.FC = () => {
-    const { tasks } = useData();
+    const { tasks, sprints } = useData();
+    const [selectedSprintId, setSelectedSprintId] = useState<string>('all');
 
-    const todoCount = tasks.filter(task => task.status === Status.ToDo).length;
-    const inProgressCount = tasks.filter(task => task.status === Status.InProgress).length;
-    const doneCount = tasks.filter(task => task.status === Status.Done).length;
+    const sortedSprints = useMemo(
+        () => [...sprints].sort((a, b) => a.name.localeCompare(b.name)),
+        [sprints]
+    );
+
+    const visibleTasks = useMemo(() => {
+        if (selectedSprintId === 'all') return tasks;
+        return tasks.filter(task => task.sprintId === selectedSprintId);
+    }, [selectedSprintId, tasks]);
+
+    const todoCount = visibleTasks.filter(task => task.status === Status.ToDo).length;
+    const inProgressCount = visibleTasks.filter(task => task.status === Status.InProgress).length;
+    const doneCount = visibleTasks.filter(task => task.status === Status.Done).length;
 
     const chartData = [
         { name: 'To Do', value: todoCount },
@@ -38,7 +49,23 @@ const DashboardPage: React.FC = () => {
 
     return (
         <div>
-            <h1 className="text-3xl font-bold mb-6" style={{color: '#000'}}>Dashboard</h1>
+            <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
+                <h1 className="text-3xl font-bold" style={{color: '#000'}}>Dashboard</h1>
+                <div className="flex items-center gap-2">
+                    <label htmlFor="sprint-filter" className="text-sm font-medium text-[#5E6C84]">Sprint</label>
+                    <select
+                        id="sprint-filter"
+                        value={selectedSprintId}
+                        onChange={(e) => setSelectedSprintId(e.target.value)}
+                        className="p-2 bg-white border border-[#DFE1E6] rounded-md text-[#172B4D] focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                    >
+                        <option value="all">All sprints</option>
+                        {sortedSprints.map(sprint => (
+                            <option key={sprint.id} value={sprint.id}>{sprint.name}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <StatCard title="To Do" value={todoCount} color="bg-accent-yellow" icon={<TodoIcon />} />
                 <StatCard title="In Progress" value={inProgressCount} color="bg-accent-blue" icon={<InProgressIcon />} />
@@ -47,7 +74,7 @@ const DashboardPage: React.FC = () => {
 
             <div className="bg-white rounded-lg p-6 shadow-sm border border-[#DFE1E6] h-96">
                 <h2 className="text-xl font-bold mb-4" style={{color: '#000'}}>Tasks Overview</h2>
-                {tasks.length > 0 ? (
+                {visibleTasks.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                             <Pie

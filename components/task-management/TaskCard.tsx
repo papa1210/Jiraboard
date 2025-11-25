@@ -34,6 +34,18 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onClick }) => {
             <div className="mt-3 text-xs text-[#5E6C84]">
                 <p>Start Date: {task.startDate ? new Date(task.startDate).toLocaleDateString() : 'Not set'}</p>
             </div>
+            <div className="mt-3">
+                <div className="flex justify-between text-xs text-[#5E6C84] mb-1">
+                    <span>Progress</span>
+                    <span>{Math.round(task.completionPercent ?? 0)}%</span>
+                </div>
+                <div className="w-full bg-[#F4F5F7] rounded-full h-2 border border-[#DFE1E6]">
+                    <div
+                        className="h-2 rounded-full bg-[#0052CC] transition-all duration-200"
+                        style={{ width: `${Math.min(100, Math.max(0, task.completionPercent ?? 0))}%` }}
+                    />
+                </div>
+            </div>
         </div>
     );
 };

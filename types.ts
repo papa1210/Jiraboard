@@ -14,6 +14,7 @@ export interface Task {
   sprintId: string | null;
   startDate: string;
   comments: string;
+  completionPercent: number;
 }
 
 export interface Sprint {

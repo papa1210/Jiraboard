@@ -40,7 +40,7 @@ const TaskManagementPage: React.FC = () => {
     return (
         <div className="flex flex-col h-full">
             <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
-                <h1 className="text-3xl font-bold text-text-primary">Task Management</h1>
+                <h1 className="text-3xl font-bold text-black">Task Management</h1>
                 <div className="flex items-center gap-4">
                     <select
                         value={selectedSprintId || ''}

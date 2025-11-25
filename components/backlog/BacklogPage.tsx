@@ -72,8 +72,24 @@ const BacklogPage: React.FC = () => {
                     <tbody className="divide-y divide-[#DFE1E6]">
                         {filteredTasks.map(task => (
                             <tr key={task.id} className="hover:bg-[#F4F5F7]">
-                                <td className="p-4 whitespace-nowrap text-[#172B4D] font-medium">{task.taskId}</td>
-                                <td className="p-4 text-[#172B4D] max-w-sm truncate">{task.description}</td>
+                                <td className="p-4 whitespace-nowrap text-[#172B4D] font-medium">
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditingTask(task)}
+                                        className="text-left hover:text-[#0052CC] focus:outline-none focus:underline"
+                                    >
+                                        {task.taskId}
+                                    </button>
+                                </td>
+                                <td className="p-4 text-[#172B4D] max-w-sm truncate">
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditingTask(task)}
+                                        className="text-left w-full hover:text-[#0052CC] focus:outline-none focus:underline"
+                                    >
+                                        {task.description}
+                                    </button>
+                                </td>
                                 <td className="p-4 whitespace-nowrap"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${task.status === Status.Done ? 'bg-[#36B37E]' : task.status === Status.InProgress ? 'bg-[#0052CC]' : 'bg-[#FFAB00]'} text-white`}>{task.status}</span></td>
                                 <td className="p-4 whitespace-nowrap text-[#5E6C84]">{new Date(task.createdAt).toLocaleDateString()}</td>
                                 <td className="p-4 whitespace-nowrap text-[#5E6C84]">{task.sprintId ? sprintMap[task.sprintId] : 'Backlog'}</td>
