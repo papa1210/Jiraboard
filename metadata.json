@@ -1,0 +1,5 @@
+{
+  "name": "Jira Clone - Task Manager",
+  "description": "A comprehensive task management application inspired by Jira, featuring a dashboard, backlog, and sprint-based Kanban boards. Built with React, TypeScript, and Tailwind CSS, it offers drag-and-drop functionality and local data persistence.",
+  "requestFramePermissions": []
+}
