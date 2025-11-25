@@ -17,7 +17,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ sprintId }) => {
     const tasks = getTasksForSprint(sprintId);
 
     const handleDrop = (taskId: string, newStatus: Status) => {
-        updateTask(taskId, { status: newStatus });
+        if (newStatus === Status.Done) {
+            updateTask(taskId, { status: Status.Done, completionPercent: 100 });
+        } else {
+            updateTask(taskId, { status: newStatus, completeDate: null });
+        }
     };
 
     const handleTaskClick = (task: Task) => {
