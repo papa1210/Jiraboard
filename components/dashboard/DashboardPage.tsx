@@ -26,6 +26,11 @@ const DashboardPage: React.FC = () => {
         [sprints]
     );
 
+    const selectedSprint = useMemo(
+        () => (selectedSprintId === 'all' ? null : sprints.find(sprint => sprint.id === selectedSprintId)),
+        [selectedSprintId, sprints]
+    );
+
     const visibleTasks = useMemo(() => {
         if (selectedSprintId === 'all') return tasks;
         return tasks.filter(task => task.sprintId === selectedSprintId);
@@ -43,6 +48,9 @@ const DashboardPage: React.FC = () => {
 
     const totalTasks = chartData.reduce((sum, item) => sum + item.value, 0);
     const donePercent = totalTasks === 0 ? 0 : Math.round((doneCount / totalTasks) * 100);
+    const sprintPeriodLabel = selectedSprint?.startDate && selectedSprint?.endDate
+        ? `${selectedSprint.startDate} to ${selectedSprint.endDate}`
+        : 'All dates';
 
     return (
         <div>
@@ -63,6 +71,25 @@ const DashboardPage: React.FC = () => {
                     </select>
                 </div>
             </div>
+
+            <div className="bg-white rounded-lg p-4 mb-6 shadow-sm border border-[#DFE1E6] flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <p className="text-sm text-[#5E6C84] font-medium">Current view</p>
+                    <p className="text-xl font-semibold text-[#172B4D]">{selectedSprint ? selectedSprint.name : 'All sprints'}</p>
+                    <p className="text-xs text-[#5E6C84]">Period: {selectedSprint ? sprintPeriodLabel : 'Every sprint plus backlog'}</p>
+                </div>
+                <div className="flex items-center gap-8">
+                    <div className="text-right">
+                        <p className="text-sm text-[#5E6C84] font-medium">Total tasks</p>
+                        <p className="text-2xl font-bold text-[#172B4D]">{visibleTasks.length}</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-sm text-[#5E6C84] font-medium">Done %</p>
+                        <p className="text-2xl font-bold text-[#172B4D]">{donePercent}%</p>
+                    </div>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <StatCard title="To Do" value={todoCount} color="bg-accent-yellow" icon={<TodoIcon />} />
                 <StatCard title="In Progress" value={inProgressCount} color="bg-accent-blue" icon={<InProgressIcon />} />
