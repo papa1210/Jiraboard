@@ -4,7 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Jira Clone - Task Manager</title>
+    <title>Jira Task Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -21,7 +21,10 @@
               'accent-green': '#36B37E',
               'accent-yellow': '#FFAB00',
               'accent-red': '#FF5630',
-            }
+            },
+            fontFamily: {
+              sans: ['"Atlassian Sans"', 'Segoe UI', 'system-ui', 'sans-serif'],
+            },
           }
         }
       }
@@ -38,6 +41,11 @@
 }
 </script>
 <link rel="stylesheet" href="/index.css">
+<style>
+  body {
+    font-family: "Atlassian Sans", "Segoe UI", system-ui, sans-serif;
+  }
+</style>
 </head>
   <body class="bg-background text-text-primary">
     <div id="root"></div>

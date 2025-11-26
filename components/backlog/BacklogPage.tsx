@@ -14,11 +14,15 @@ const formatSprintDuration = (sprint: Sprint) => {
 };
 
 const BacklogPage: React.FC = () => {
-    const { tasks, sprints, updateTask, deleteTask } = useData();
+    const { tasks, sprints, updateTask, deleteTask, addSprint, deleteSprint, getTasksForSprint } = useData();
     const [searchTerm, setSearchTerm] = useState('');
     const [isCreateModalOpen, setCreateModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
     const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+    const [isSprintModalOpen, setSprintModalOpen] = useState(false);
+    const [newSprintYear, setNewSprintYear] = useState(new Date().getFullYear());
+    const [selectedSprintIdForDelete, setSelectedSprintIdForDelete] = useState<string>('');
+    const [sprintIdForCreate, setSprintIdForCreate] = useState<string | null>(null);
 
     const filteredTasks = useMemo(() => {
         const lower = searchTerm.toLowerCase().trim();
@@ -28,6 +32,8 @@ const BacklogPage: React.FC = () => {
             task.description.toLowerCase().includes(lower)
         );
     }, [tasks, searchTerm]);
+
+    const sortedSprints = useMemo(() => [...sprints].sort((a, b) => b.name.localeCompare(a.name)), [sprints]);
 
     const sprintMap = useMemo(() => {
         return sprints.reduce((acc, sprint) => {
@@ -74,7 +80,8 @@ const BacklogPage: React.FC = () => {
 
             return changed ? next : prev;
         });
-    }, [sprints]);
+        setSelectedSprintIdForDelete(sortedSprints[0]?.id || '');
+    }, [sprints, sortedSprints]);
 
     const handleUpdateTask = (updatedTask: Task) => {
         updateTask(updatedTask.id, updatedTask);
@@ -87,6 +94,31 @@ const BacklogPage: React.FC = () => {
         }
     };
 
+    const handleCreateSprint = () => {
+        const sprintNumber = sprints.filter(s => s.name.startsWith(String(newSprintYear))).length + 1;
+        const sprintName = `${newSprintYear}-Sprint-${String(sprintNumber).padStart(2, '0')}`;
+        const startDate = new Date();
+        const endDate = new Date();
+        endDate.setDate(startDate.getDate() + 21);
+
+        addSprint({
+            name: sprintName,
+            startDate: startDate.toISOString().split('T')[0],
+            endDate: endDate.toISOString().split('T')[0],
+        });
+        setSprintModalOpen(false);
+    };
+
+    const handleDeleteSprint = () => {
+        if (!selectedSprintIdForDelete) return;
+        const sprint = sprints.find(s => s.id === selectedSprintIdForDelete);
+        const name = sprint?.name || 'this sprint';
+        const confirmDelete = window.confirm(`Delete sprint "${name}"? Tasks in this sprint will move to Backlog.`);
+        if (confirmDelete) {
+            deleteSprint(selectedSprintIdForDelete);
+        }
+    };
+
     const toggleGroup = (groupId: string) => {
         setCollapsedGroups(prev => ({
             ...prev,
@@ -95,20 +127,118 @@ const BacklogPage: React.FC = () => {
     };
 
     const hasResults = filteredTasks.length > 0;
+    const formatDate = (value: string | null | undefined) => {
+        if (!value) return '';
+        return new Date(value).toLocaleDateString();
+    };
+
+    const buildReportHtml = (sprint: Sprint, sprintTasks: Task[]) => {
+        const generatedOn = new Date().toLocaleString();
+        const rows = sprintTasks.map(task => `
+            <tr>
+                <td>${task.taskId}</td>
+                <td>${formatDate(task.startDate)}</td>
+                <td>${formatDate(task.completeDate)}</td>
+                <td>${task.status}</td>
+                <td>${task.comments ? task.comments.replace(/\\n/g, ' ') : ''}</td>
+            </tr>
+        `).join('');
+
+        return `<!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8" />
+          <style>
+            table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+            th, td { border: 1px solid #d0d0d0; padding: 8px; text-align: left; }
+            th { background: #f0f0f0; }
+            caption { text-align: left; font-weight: bold; margin-bottom: 8px; }
+          </style>
+        </head>
+        <body>
+          <table>
+            <caption>Sprint Report</caption>
+            <tr><th>Generated On</th><td>${generatedOn}</td></tr>
+            <tr><th>Sprint Name</th><td>${sprint.name}</td></tr>
+            <tr><th>Sprint Period</th><td>${formatDate(sprint.startDate)} - ${formatDate(sprint.endDate)}</td></tr>
+          </table>
+          <br />
+          <table>
+            <tr>
+              <th>Task ID</th>
+              <th>Start Date</th>
+              <th>Complete Date</th>
+              <th>Status</th>
+              <th>Notes</th>
+            </tr>
+            ${rows || '<tr><td colspan="5">No tasks in this sprint</td></tr>'}
+          </table>
+        </body>
+        </html>`;
+    };
+
+    const handleExportReport = () => {
+        if (!selectedSprintIdForDelete) return;
+        const sprint = sprints.find(s => s.id === selectedSprintIdForDelete);
+        if (!sprint) return;
+        const sprintTasks = getTasksForSprint(selectedSprintIdForDelete);
+        const html = buildReportHtml(sprint, sprintTasks);
+        const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const sprintLabel = sprint.name.replace(/\s+/g, '-');
+        link.href = url;
+        link.download = `${sprintLabel}-report.xls`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
 
     return (
         <div>
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
-                <div>
-                    <h1 className="text-3xl font-bold text-[#000]">Product Backlog</h1>
-                    <p className="text-sm text-[#5E6C84]">Group by sprint, search quickly, and expand or collapse each sprint.</p>
+            <div className="flex flex-col gap-3 mb-6">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div>
+                        <h1 className="text-3xl font-bold text-[#000]">Product Backlog</h1>
+                        <p className="text-sm text-[#5E6C84]">Group by sprint, search quickly, and expand or collapse each sprint.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={() => setSprintModalOpen(true)}
+                            className="bg-accent-blue hover:bg-primary text-white font-bold py-2 px-4 rounded-md transition-colors"
+                        >
+                            Create Sprint
+                        </button>
+                        <button
+                            onClick={handleDeleteSprint}
+                            className="bg-accent-red hover:bg-opacity-90 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
+                            disabled={!selectedSprintIdForDelete}
+                        >
+                            Delete Sprint
+                        </button>
+                        <button
+                            onClick={handleExportReport}
+                            className="bg-[#172B4D] hover:bg-[#0f1d3a] text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
+                            disabled={!selectedSprintIdForDelete}
+                        >
+                            Sprint Report
+                        </button>
+                    </div>
                 </div>
-                <button
-                    onClick={() => setCreateModalOpen(true)}
-                    className="bg-[#0052CC] hover:bg-[#0747A6] text-white font-bold py-2 px-4 rounded-md transition-colors"
-                >
-                    Create Task
-                </button>
+                <div className="flex flex-wrap gap-2 items-center">
+                    <label className="text-sm text-[#172B4D]">Sprint Selection:</label>
+                    <select
+                        value={selectedSprintIdForDelete}
+                        onChange={(e) => setSelectedSprintIdForDelete(e.target.value)}
+                        className="p-2 bg-white border border-[#DFE1E6] rounded-md text-[#172B4D] focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                    >
+                        {sortedSprints.map(sprint => (
+                            <option key={sprint.id} value={sprint.id}>{sprint.name}</option>
+                        ))}
+                        {sortedSprints.length === 0 && <option value="">No sprints</option>}
+                    </select>
+                </div>
             </div>
 
             <div className="mb-4">
@@ -199,6 +329,17 @@ const BacklogPage: React.FC = () => {
                                         </table>
                                     </div>
                                 )}
+                                <div className="border-t border-[#DFE1E6] bg-[#F8F9FB] px-4 py-3 flex justify-between items-center">
+                                    <div className="text-sm text-[#5E6C84]">Add a task to this sprint.</div>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setSprintIdForCreate(group.id === BACKLOG_ID ? null : group.id); setCreateModalOpen(true); }}
+                                        className="flex items-center gap-2 text-[#0052CC] font-semibold hover:underline"
+                                    >
+                                        <span className="text-xl leading-none">+</span>
+                                        <span>Create Task</span>
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -210,9 +351,31 @@ const BacklogPage: React.FC = () => {
             <Modal isOpen={isCreateModalOpen} onClose={() => setCreateModalOpen(false)} title="Create New Task">
                 <TaskForm 
                     sprints={sprints}
-                    onTaskCreated={() => setCreateModalOpen(false)}
-                    initialData={{ sprintId: null }}
+                    onTaskCreated={() => { setCreateModalOpen(false); setSprintIdForCreate(null); }}
+                    initialData={{ sprintId: sprintIdForCreate }}
                 />
+            </Modal>
+
+            <Modal isOpen={isSprintModalOpen} onClose={() => setSprintModalOpen(false)} title="Create New Sprint">
+                <div className="space-y-4 bg-white p-4 rounded-md">
+                    <label htmlFor="sprintYear" className="block text-sm font-medium" style={{color: '#000'}}>Sprint Year</label>
+                    <input
+                        id="sprintYear"
+                        type="number"
+                        value={newSprintYear}
+                        onChange={(e) => setNewSprintYear(parseInt(e.target.value))}
+                        className="w-full p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                    />
+                    <p className="text-sm" style={{color: '#000'}}>
+                        A new sprint will be created for the year {newSprintYear}. 
+                        The name will be automatically generated (e.g., {newSprintYear}-Sprint-XX).
+                        The duration will be set to 3 weeks from today.
+                    </p>
+                    <div className="flex justify-end gap-4 mt-6">
+                        <button onClick={() => setSprintModalOpen(false)} className="bg-secondary hover:bg-opacity-80 text-white font-bold py-2 px-4 rounded-md">Cancel</button>
+                        <button onClick={handleCreateSprint} className="bg-accent-blue hover:bg-primary text-white font-bold py-2 px-4 rounded-md">Create</button>
+                    </div>
+                </div>
             </Modal>
             
             {editingTask && (
