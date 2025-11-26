@@ -10,6 +10,18 @@ export enum Priority {
   No = 'No',
 }
 
+export enum DutyStatus {
+  OnDuty = 'On Duty',
+  OffDuty = 'Off Duty',
+}
+
+export interface Resource {
+  id: string;
+  name: string;
+  role: string;
+  status: DutyStatus;
+}
+
 export interface Task {
   id: string;
   taskId: string;
@@ -22,6 +34,7 @@ export interface Task {
   comments: string;
   completionPercent: number;
   completeDate: string | null;
+  assignedResourceIds: string[];
 }
 
 export interface Sprint {
@@ -34,4 +47,5 @@ export interface Sprint {
 export interface AppData {
   tasks: Task[];
   sprints: Sprint[];
+  resources?: Resource[];
 }

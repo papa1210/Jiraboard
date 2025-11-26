@@ -5,6 +5,7 @@ import Sidebar from './components/layout/Sidebar';
 import DashboardPage from './components/dashboard/DashboardPage';
 import BacklogPage from './components/backlog/BacklogPage';
 import TaskManagementPage from './components/task-management/TaskManagementPage';
+import ResourceManagementPage from './components/resources/ResourceManagementPage';
 import { DataProvider } from './context/DataContext';
 
 const App: React.FC = () => {
@@ -18,6 +19,7 @@ const App: React.FC = () => {
               <Route path="/" element={<DashboardPage />} />
               <Route path="/backlog" element={<BacklogPage />} />
               <Route path="/board" element={<TaskManagementPage />} />
+              <Route path="/resources" element={<ResourceManagementPage />} />
             </Routes>
           </main>
         </div>

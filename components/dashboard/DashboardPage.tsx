@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { Status } from '../../types';
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
 // FIX: Changed the type of the icon prop from JSX.Element to React.ReactElement.
 const StatCard = ({ title, value, color, icon }: { title: string, value: number, color: string, icon: React.ReactElement }) => (
@@ -36,16 +36,13 @@ const DashboardPage: React.FC = () => {
     const doneCount = visibleTasks.filter(task => task.status === Status.Done).length;
 
     const chartData = [
-        { name: 'To Do', value: todoCount },
-        { name: 'In Progress', value: inProgressCount },
-        { name: 'Done', value: doneCount },
+        { name: 'Done', value: doneCount, color: '#36B37E' },
+        { name: 'In Progress', value: inProgressCount, color: '#0052CC' },
+        { name: 'To Do', value: todoCount, color: '#FFAB00' }, // accent yellow to match To Do
     ];
 
-    const COLORS = {
-        'To Do': '#FFAB00', // accent-yellow
-        'In Progress': '#0052CC', // accent-blue
-        'Done': '#36B37E', // accent-green
-    };
+    const totalTasks = chartData.reduce((sum, item) => sum + item.value, 0);
+    const donePercent = totalTasks === 0 ? 0 : Math.round((doneCount / totalTasks) * 100);
 
     return (
         <div>
@@ -72,37 +69,61 @@ const DashboardPage: React.FC = () => {
                 <StatCard title="Done" value={doneCount} color="bg-accent-green" icon={<DoneIcon />} />
             </div>
 
-            <div className="bg-white rounded-lg p-6 shadow-sm border border-[#DFE1E6] h-96">
+            <div className="bg-white rounded-lg p-6 shadow-sm border border-[#DFE1E6]">
                 <h2 className="text-xl font-bold mb-4" style={{color: '#000'}}>Tasks Overview</h2>
                 {visibleTasks.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie
-                                data={chartData}
-                                cx="50%"
-                                cy="50%"
-                                labelLine={false}
-                                outerRadius={120}
-                                fill="#8884d8"
-                                dataKey="value"
-                                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                            >
-                                {chartData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[entry.name as keyof typeof COLORS]} />
-                                ))}
-                            </Pie>
-                            <Tooltip
-                                contentStyle={{
-                                    backgroundColor: '#F4F5F7',
-                                    borderColor: '#DFE1E6',
-                                    color: '#172B4D'
-                                }}
-                            />
-                            <Legend />
-                        </PieChart>
-                    </ResponsiveContainer>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                        <div className="h-80 relative">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={chartData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={70}
+                                        outerRadius={120}
+                                        paddingAngle={3}
+                                        dataKey="value"
+                                        stroke="none"
+                                    >
+                                        {chartData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip
+                                        contentStyle={{
+                                            backgroundColor: '#1B1B1D',
+                                            borderColor: '#3A3A3F',
+                                            color: '#fff'
+                                        }}
+                                        labelStyle={{ color: '#fff' }}
+                                        itemStyle={{ color: '#fff' }}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                <p className="text-4xl font-bold text-[#172B4D]">{donePercent}%</p>
+                                <p className="text-sm text-[#5E6C84]">Done</p>
+                            </div>
+                        </div>
+                        <div className="space-y-3">
+                            {chartData.map(item => (
+                                <div key={item.name} className="flex items-center justify-between text-sm">
+                                    <div className="flex items-center gap-2">
+                                        <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: item.color }} />
+                                        <span className="text-[#172B4D] font-medium">{item.name}</span>
+                                    </div>
+                                    <span className="text-[#0052CC] font-semibold">{item.value}</span>
+                                </div>
+                            ))}
+                            <div className="border-t border-[#DFE1E6] pt-2 flex items-center justify-between text-sm font-semibold">
+                                <span className="text-[#172B4D]">Total</span>
+                                <span className="text-[#0052CC]">{totalTasks}</span>
+                            </div>
+                        </div>
+                    </div>
                 ) : (
-                    <div className="flex items-center justify-center h-full">
+                    <div className="flex items-center justify-center h-80">
                         <p className="text-text-secondary">No tasks available to display chart.</p>
                     </div>
                 )}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useData } from '../../context/DataContext';
-import { Task, Sprint, Status, Priority } from '../../types';
+import { Task, Sprint, Status, Priority, DutyStatus } from '../../types';
 
 interface TaskFormProps {
     initialData: Partial<Task>;
@@ -10,7 +10,7 @@ interface TaskFormProps {
 }
 
 const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated, onTaskUpdated }) => {
-    const { addTask } = useData();
+    const { addTask, resources } = useData();
     const [formData, setFormData] = useState<Partial<Task>>({
         taskId: '',
         description: '',
@@ -21,6 +21,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
         comments: '',
         completionPercent: 0,
         completeDate: null,
+        assignedResourceIds: [],
         ...initialData
     });
     
@@ -35,6 +36,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
             comments: '',
             completionPercent: 0,
             completeDate: null,
+            assignedResourceIds: [],
             ...initialData
         });
     }, [initialData]);
@@ -53,6 +55,15 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
         }
     };
 
+    const handleResourceToggle = (resourceId: string) => {
+        setFormData(prev => {
+            const current = prev.assignedResourceIds || [];
+            const exists = current.includes(resourceId);
+            const next = exists ? current.filter(id => id !== resourceId) : [...current, resourceId];
+            return { ...prev, assignedResourceIds: next };
+        });
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.taskId || !formData.description) {
@@ -69,12 +80,14 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
                 sprintId: formData.sprintId || null,
                 completionPercent: formData.completionPercent ?? 0,
                 priority: formData.priority ?? Priority.No,
+                assignedResourceIds: formData.assignedResourceIds ?? [],
             });
             onTaskCreated?.();
         }
     };
     
     const isEditing = !!initialData.id;
+    const onDutyResources = resources.filter(r => r.status === DutyStatus.OnDuty);
 
     return (
         <form onSubmit={handleSubmit}>
@@ -186,6 +199,27 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
                                 onChange={handleChange}
                                 className="w-full mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
                             />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium" style={{color: '#000'}}>Assign Resources (On Duty)</label>
+                            <div className="mt-2 max-h-48 overflow-y-auto space-y-2 p-2 bg-white border border-[#DFE1E6] rounded-md">
+                                {onDutyResources.length === 0 && (
+                                    <p className="text-sm text-[#5E6C84]">No on-duty resources available.</p>
+                                )}
+                                {onDutyResources.map(resource => {
+                                    const checked = (formData.assignedResourceIds || []).includes(resource.id);
+                                    return (
+                                        <label key={resource.id} className="flex items-center gap-2 text-sm text-[#172B4D]">
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={() => handleResourceToggle(resource.id)}
+                                            />
+                                            <span>{resource.name} - {resource.role}</span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
                  </div>
