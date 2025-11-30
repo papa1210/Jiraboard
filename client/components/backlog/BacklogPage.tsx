@@ -14,7 +14,7 @@ const formatSprintDuration = (sprint: Sprint) => {
 };
 
 const BacklogPage: React.FC = () => {
-    const { tasks, sprints, updateTask, deleteTask, addSprint, deleteSprint, getTasksForSprint } = useData();
+    const { tasks, sprints, updateTask, deleteTask, addSprint, deleteSprint, getTasksForSprint, currentUserRole, isAdmin } = useData();
     const [searchTerm, setSearchTerm] = useState('');
     const [isCreateModalOpen, setCreateModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -194,6 +194,8 @@ const BacklogPage: React.FC = () => {
         URL.revokeObjectURL(url);
     };
 
+    const canManageSprints = isAdmin || currentUserRole === 'SUPV';
+
     return (
         <div>
             <div className="flex flex-col gap-3 mb-6">
@@ -206,13 +208,14 @@ const BacklogPage: React.FC = () => {
                         <button
                             onClick={() => setSprintModalOpen(true)}
                             className="bg-accent-blue hover:bg-primary text-white font-bold py-2 px-4 rounded-md transition-colors"
+                            disabled={!canManageSprints}
                         >
                             Create Sprint
                         </button>
                         <button
                             onClick={handleDeleteSprint}
                             className="bg-accent-red hover:bg-opacity-90 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
-                            disabled={!selectedSprintIdForDelete}
+                            disabled={!selectedSprintIdForDelete || !canManageSprints}
                         >
                             Delete Sprint
                         </button>

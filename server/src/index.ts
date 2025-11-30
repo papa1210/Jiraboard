@@ -29,7 +29,19 @@ function requireAuth(req: express.Request, res: express.Response, next: express.
   if (!authHeader) return res.status(401).json({ error: "Missing Authorization header" });
   const token = authHeader.replace("Bearer ", "");
   try {
-    const payload = jwt.verify(token, jwtSecret) as AuthUser;
+    const decoded = jwt.verify(token, jwtSecret);
+    if (typeof decoded !== "object" || decoded === null) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+    const payload: AuthUser = {
+      sub: (decoded as any).sub,
+      username: (decoded as any).username,
+      isAdmin: Boolean((decoded as any).isAdmin),
+      role: (decoded as any).role,
+    };
+    if (typeof payload.sub !== "number" || typeof payload.username !== "string") {
+      return res.status(401).json({ error: "Invalid token" });
+    }
     (req as any).user = payload;
     return next();
   } catch {
@@ -374,7 +386,7 @@ app.get(
     const { id } = req.params;
     const task = await prisma.task.findUnique({ where: { id: Number(id) }, select: { projectId: true } });
     if (!task) return res.status(404).json({ error: "Task not found" });
-    await ensureOwnsProject(user.sub, task.projectId);
+    await ensureProjectExists(task.projectId);
     const comments = await prisma.comment.findMany({
       where: { taskId: Number(id) },
       include: { author: { select: { id: true, username: true } } },
@@ -394,7 +406,7 @@ app.post(
     if (!body) return res.status(400).json({ error: "body is required" });
     const task = await prisma.task.findUnique({ where: { id: Number(id) }, select: { projectId: true } });
     if (!task) return res.status(404).json({ error: "Task not found" });
-    await ensureOwnsProject(user.sub, task.projectId);
+    await ensureProjectExists(task.projectId);
     const comment = await prisma.comment.create({
       data: { body, taskId: Number(id), authorId: user.sub },
     });

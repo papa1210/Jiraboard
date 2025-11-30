@@ -23,6 +23,8 @@ services:
     depends_on:
       - db
     restart: unless-stopped
+    ports:
+      - "4000:4000"
 
   client:
     build:
