@@ -27,14 +27,14 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 
       onClick={onClose}
     >
       <div
-        className={`bg-white rounded-lg shadow-xl w-full m-4 p-6 relative border border-[#DFE1E6] ${sizeClasses[size]}`}
+        className={`bg-white rounded-2xl shadow-[var(--shadow-soft)] w-full m-4 p-6 relative border border-[var(--color-border)] ${sizeClasses[size]}`}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-[#172B4D]">{title}</h2>
+          <h2 className="text-xl font-bold text-[var(--color-text)]">{title}</h2>
           <button
             onClick={onClose}
-            className="text-[#5E6C84] hover:text-[#172B4D] text-2xl"
+            className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-2xl"
           >
             &times;
           </button>

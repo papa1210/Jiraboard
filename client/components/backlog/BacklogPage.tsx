@@ -58,6 +58,9 @@ const BacklogPage: React.FC = () => {
         }));
     }, [filteredTasks, sprints]);
 
+    const totalTasks = filteredTasks.length;
+    const backlogTasks = filteredTasks.filter(task => !task.sprintId).length;
+
     useEffect(() => {
         setCollapsedGroups(prev => {
             const allIds = [...sprints.map(s => s.id), BACKLOG_ID];
@@ -207,21 +210,21 @@ const BacklogPage: React.FC = () => {
                     <div className="flex flex-wrap gap-2">
                         <button
                             onClick={() => setSprintModalOpen(true)}
-                            className="bg-accent-blue hover:bg-primary text-white font-bold py-2 px-4 rounded-md transition-colors"
+                            className="btn-primary"
                             disabled={!canManageSprints}
                         >
                             Create Sprint
                         </button>
                         <button
                             onClick={handleDeleteSprint}
-                            className="bg-accent-red hover:bg-opacity-90 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
+                            className="btn-ghost"
                             disabled={!selectedSprintIdForDelete || !canManageSprints}
                         >
                             Delete Sprint
                         </button>
                         <button
                             onClick={handleExportReport}
-                            className="bg-[#172B4D] hover:bg-[#0f1d3a] text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
+                            className="btn-ghost"
                             disabled={!selectedSprintIdForDelete}
                         >
                             Sprint Report
@@ -233,7 +236,7 @@ const BacklogPage: React.FC = () => {
                     <select
                         value={selectedSprintIdForDelete}
                         onChange={(e) => setSelectedSprintIdForDelete(e.target.value)}
-                        className="p-2 bg-white border border-[#DFE1E6] rounded-md text-[#172B4D] focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                        className="p-2 bg-[#F9FAFB] border border-[var(--color-border)] rounded-lg text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                     >
                         {sortedSprints.map(sprint => (
                             <option key={sprint.id} value={sprint.id}>{sprint.name}</option>
@@ -249,13 +252,28 @@ const BacklogPage: React.FC = () => {
                     placeholder="Search by Task ID or description..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full p-2 bg-white border border-[#DFE1E6] rounded-md text-[#172B4D] focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                    className="w-full input-soft"
                 />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-[var(--shadow-soft)] p-4">
+                    <p className="text-sm text-[var(--color-text-muted)]">Total tasks</p>
+                    <p className="text-2xl font-bold text-[var(--color-text)]">{totalTasks}</p>
+                </div>
+                <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-[var(--shadow-soft)] p-4">
+                    <p className="text-sm text-[var(--color-text-muted)]">Backlog tasks</p>
+                    <p className="text-2xl font-bold text-[var(--color-text)]">{backlogTasks}</p>
+                </div>
+                <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-[var(--shadow-soft)] p-4">
+                    <p className="text-sm text-[var(--color-text-muted)]">Active sprints</p>
+                    <p className="text-2xl font-bold text-[var(--color-text)]">{sprints.length}</p>
+                </div>
             </div>
 
             <div className="space-y-4">
                 {groupedTasks.map(group => (
-                    <div key={group.id} className="bg-white rounded-lg shadow-sm border border-[#DFE1E6] overflow-hidden">
+                    <div key={group.id} className="bg-white rounded-2xl shadow-[var(--shadow-soft)] border border-[var(--color-border)] overflow-hidden">
                         <button
                             type="button"
                             onClick={() => toggleGroup(group.id)}
@@ -274,20 +292,20 @@ const BacklogPage: React.FC = () => {
                         </button>
 
                         {!collapsedGroups[group.id] && (
-                            <div className="border-t border-[#DFE1E6]">
+                            <div className="border-t border-[var(--color-border)]">
                                 {group.tasks.length === 0 ? (
                                     <p className="text-center p-6 text-[#5E6C84] text-sm">No tasks in this sprint.</p>
                                 ) : (
                                     <div className="overflow-x-auto">
                                         <table className="min-w-full">
-                                            <thead className="bg-[#DEEBFF]">
+                                            <thead className="bg-[var(--color-primary-light)]">
                                                 <tr>
-                                                    <th className="p-4 text-left text-sm font-semibold text-[#5E6C84] tracking-wider">Task ID</th>
-                                                    <th className="p-4 text-left text-sm font-semibold text-[#5E6C84] tracking-wider">Description</th>
-                                                    <th className="p-4 text-left text-sm font-semibold text-[#5E6C84] tracking-wider">Status</th>
-                                                    <th className="p-4 text-left text-sm font-semibold text-[#5E6C84] tracking-wider">Created At</th>
-                                                    <th className="p-4 text-left text-sm font-semibold text-[#5E6C84] tracking-wider">Sprint</th>
-                                                    <th className="p-4 text-left text-sm font-semibold text-[#5E6C84] tracking-wider">Actions</th>
+                                                    <th className="p-4 text-left text-sm font-semibold text-[var(--color-text-muted)] tracking-wider">Task ID</th>
+                                                    <th className="p-4 text-left text-sm font-semibold text-[var(--color-text-muted)] tracking-wider">Description</th>
+                                                    <th className="p-4 text-left text-sm font-semibold text-[var(--color-text-muted)] tracking-wider">Status</th>
+                                                    <th className="p-4 text-left text-sm font-semibold text-[var(--color-text-muted)] tracking-wider">Created At</th>
+                                                    <th className="p-4 text-left text-sm font-semibold text-[var(--color-text-muted)] tracking-wider">Sprint</th>
+                                                    <th className="p-4 text-left text-sm font-semibold text-[var(--color-text-muted)] tracking-wider">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-[#DFE1E6]">
@@ -331,12 +349,12 @@ const BacklogPage: React.FC = () => {
                                         </table>
                                     </div>
                                 )}
-                                <div className="border-t border-[#DFE1E6] bg-[#F8F9FB] px-4 py-3 flex justify-between items-center">
-                                    <div className="text-sm text-[#5E6C84]">Add a task to this sprint.</div>
+                            <div className="border-t border-[var(--color-border)] bg-[#F8F9FB] px-4 py-3 flex justify-between items-center">
+                                    <div className="text-sm text-[var(--color-text-muted)]">Add a task to this sprint.</div>
                                     <button
                                         type="button"
                                         onClick={() => { setSprintIdForCreate(group.id === BACKLOG_ID ? null : group.id); setCreateModalOpen(true); }}
-                                        className="flex items-center gap-2 text-[#0052CC] font-semibold hover:underline"
+                                        className="flex items-center gap-2 text-[var(--color-primary)] font-semibold hover:underline"
                                     >
                                         <span className="text-xl leading-none">+</span>
                                         <span>Create Task</span>

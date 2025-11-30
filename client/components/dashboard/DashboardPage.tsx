@@ -5,13 +5,13 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
 // FIX: Changed the type of the icon prop from JSX.Element to React.ReactElement.
 const StatCard = ({ title, value, color, icon }: { title: string, value: number, color: string, icon: React.ReactElement }) => (
-    <div className="bg-white rounded-lg p-6 flex items-center shadow-sm border border-[#DFE1E6]">
-        <div className={`p-3 rounded-full mr-4 ${color} bg-[#DEEBFF]`}>
+    <div className="bg-white rounded-2xl p-5 flex items-center border border-[var(--color-border)] shadow-[var(--shadow-soft)]">
+        <div className="p-3 rounded-xl mr-4 flex items-center justify-center" style={{ backgroundColor: 'var(--color-primary-light)', color }}>
             {icon}
         </div>
         <div>
-            <p className="text-sm text-[#5E6C84] font-medium">{title}</p>
-            <p className="text-3xl font-bold text-[#172B4D]">{value}</p>
+            <p className="text-sm text-[var(--color-text-muted)] font-medium">{title}</p>
+            <p className="text-3xl font-bold text-[var(--color-text)]">{value}</p>
         </div>
     </div>
 );
@@ -55,14 +55,14 @@ const DashboardPage: React.FC = () => {
     return (
         <div>
             <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
-                <h1 className="text-3xl font-bold" style={{color: '#000'}}>Dashboard</h1>
+                <h1 className="text-3xl font-bold text-[var(--color-text)]">Dashboard</h1>
                 <div className="flex items-center gap-2">
-                    <label htmlFor="sprint-filter" className="text-sm font-medium text-[#5E6C84]">Sprint</label>
+                    <label htmlFor="sprint-filter" className="text-sm font-medium text-[var(--color-text-muted)]">Sprint</label>
                     <select
                         id="sprint-filter"
                         value={selectedSprintId}
                         onChange={(e) => setSelectedSprintId(e.target.value)}
-                        className="p-2 bg-white border border-[#DFE1E6] rounded-md text-[#172B4D] focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                        className="p-2 bg-[#F9FAFB] border border-[var(--color-border)] rounded-lg text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                     >
                         <option value="all">All sprints</option>
                         {sortedSprints.map(sprint => (
@@ -72,32 +72,32 @@ const DashboardPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="bg-white rounded-lg p-4 mb-6 shadow-sm border border-[#DFE1E6] flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="bg-white rounded-2xl p-5 mb-6 border border-[var(--color-border)] shadow-[var(--shadow-soft)] flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
-                    <p className="text-sm text-[#5E6C84] font-medium">Current view</p>
-                    <p className="text-xl font-semibold text-[#172B4D]">{selectedSprint ? selectedSprint.name : 'All sprints'}</p>
-                    <p className="text-xs text-[#5E6C84]">Period: {selectedSprint ? sprintPeriodLabel : 'Every sprint plus backlog'}</p>
+                    <p className="text-sm text-[var(--color-text-muted)] font-medium">Current view</p>
+                    <p className="text-xl font-semibold text-[var(--color-text)]">{selectedSprint ? selectedSprint.name : 'All sprints'}</p>
+                    <p className="text-xs text-[var(--color-text-muted)]">Period: {selectedSprint ? sprintPeriodLabel : 'Every sprint plus backlog'}</p>
                 </div>
                 <div className="flex items-center gap-8">
                     <div className="text-right">
-                        <p className="text-sm text-[#5E6C84] font-medium">Total tasks</p>
-                        <p className="text-2xl font-bold text-[#172B4D]">{visibleTasks.length}</p>
+                        <p className="text-sm text-[var(--color-text-muted)] font-medium">Total tasks</p>
+                        <p className="text-2xl font-bold text-[var(--color-text)]">{visibleTasks.length}</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-sm text-[#5E6C84] font-medium">Done %</p>
-                        <p className="text-2xl font-bold text-[#172B4D]">{donePercent}%</p>
+                        <p className="text-sm text-[var(--color-text-muted)] font-medium">Done %</p>
+                        <p className="text-2xl font-bold text-[var(--color-text)]">{donePercent}%</p>
                     </div>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <StatCard title="To Do" value={todoCount} color="bg-accent-yellow" icon={<TodoIcon />} />
-                <StatCard title="In Progress" value={inProgressCount} color="bg-accent-blue" icon={<InProgressIcon />} />
-                <StatCard title="Done" value={doneCount} color="bg-accent-green" icon={<DoneIcon />} />
+                <StatCard title="To Do" value={todoCount} color="#F59E0B" icon={<TodoIcon />} />
+                <StatCard title="In Progress" value={inProgressCount} color="#0D66D0" icon={<InProgressIcon />} />
+                <StatCard title="Done" value={doneCount} color="#36B37E" icon={<DoneIcon />} />
             </div>
 
-            <div className="bg-white rounded-lg p-6 shadow-sm border border-[#DFE1E6]">
-                <h2 className="text-xl font-bold mb-4" style={{color: '#000'}}>Tasks Overview</h2>
+            <div className="bg-white rounded-2xl p-6 border border-[var(--color-border)] shadow-[var(--shadow-soft)]">
+                <h2 className="text-xl font-bold mb-4 text-[var(--color-text)]">Tasks Overview</h2>
                 {visibleTasks.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                         <div className="h-80 relative">
@@ -119,8 +119,8 @@ const DashboardPage: React.FC = () => {
                                     </Pie>
                                     <Tooltip
                                         contentStyle={{
-                                            backgroundColor: '#1B1B1D',
-                                            borderColor: '#3A3A3F',
+                                            backgroundColor: '#111827',
+                                            borderColor: '#1f2937',
                                             color: '#fff'
                                         }}
                                         labelStyle={{ color: '#fff' }}
@@ -129,8 +129,8 @@ const DashboardPage: React.FC = () => {
                                 </PieChart>
                             </ResponsiveContainer>
                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                <p className="text-4xl font-bold text-[#172B4D]">{donePercent}%</p>
-                                <p className="text-sm text-[#5E6C84]">Done</p>
+                                <p className="text-4xl font-bold text-[var(--color-text)]">{donePercent}%</p>
+                                <p className="text-sm text-[var(--color-text-muted)]">Done</p>
                             </div>
                         </div>
                         <div className="space-y-3">
@@ -138,20 +138,20 @@ const DashboardPage: React.FC = () => {
                                 <div key={item.name} className="flex items-center justify-between text-sm">
                                     <div className="flex items-center gap-2">
                                         <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: item.color }} />
-                                        <span className="text-[#172B4D] font-medium">{item.name}</span>
+                                        <span className="text-[var(--color-text)] font-medium">{item.name}</span>
                                     </div>
-                                    <span className="text-[#0052CC] font-semibold">{item.value}</span>
+                                    <span className="text-[var(--color-primary)] font-semibold">{item.value}</span>
                                 </div>
                             ))}
-                            <div className="border-t border-[#DFE1E6] pt-2 flex items-center justify-between text-sm font-semibold">
-                                <span className="text-[#172B4D]">Total</span>
-                                <span className="text-[#0052CC]">{totalTasks}</span>
+                            <div className="border-t border-[var(--color-border)] pt-2 flex items-center justify-between text-sm font-semibold">
+                                <span className="text-[var(--color-text)]">Total</span>
+                                <span className="text-[var(--color-primary)]">{totalTasks}</span>
                             </div>
                         </div>
                     </div>
                 ) : (
                     <div className="flex items-center justify-center h-80">
-                        <p className="text-text-secondary">No tasks available to display chart.</p>
+                        <p className="text-[var(--color-text-muted)]">No tasks available to display chart.</p>
                     </div>
                 )}
             </div>

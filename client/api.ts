@@ -98,3 +98,8 @@ export const resourcesApi = {
     request(`/resources/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   remove: (id: number) => request(`/resources/${id}`, { method: "DELETE" }),
 };
+
+export const permissionsApi = {
+  get: () => request("/permissions"),
+  update: (data: Record<string, any>) => request("/permissions", { method: "PUT", body: JSON.stringify(data) }),
+};

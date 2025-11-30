@@ -71,6 +71,58 @@ async function ensureProjectExists(projectId: number) {
   }
 }
 
+type RoleKey = "ENG" | "SUPV";
+type PermissionMap = Record<RoleKey, Record<string, boolean>>;
+
+const defaultPermissions: PermissionMap = {
+  ENG: {
+    "sprint:create": false,
+    "sprint:update": false,
+    "sprint:delete": false,
+    "sprint:report": true,
+    "task:create": true,
+    "task:update": true,
+    "task:assign": false,
+    "task:delete": false,
+    "resource:manage": false,
+  },
+  SUPV: {
+    "sprint:create": true,
+    "sprint:update": true,
+    "sprint:delete": true,
+    "sprint:report": true,
+    "task:create": true,
+    "task:update": true,
+    "task:assign": true,
+    "task:delete": true,
+    "resource:manage": true,
+  },
+};
+
+let rolePermissions: PermissionMap = { ...defaultPermissions };
+
+async function loadPermissions() {
+  const setting = await prisma.permissionSetting.findUnique({ where: { key: "role_permissions" } });
+  if (setting && setting.value) {
+    rolePermissions = { ...defaultPermissions, ...(setting.value as PermissionMap) };
+  }
+}
+
+async function savePermissions(next: PermissionMap) {
+  rolePermissions = next;
+  await prisma.permissionSetting.upsert({
+    where: { key: "role_permissions" },
+    create: { key: "role_permissions", value: next },
+    update: { value: next },
+  });
+}
+
+function can(user: AuthUser, action: string) {
+  if (user.isAdmin) return true;
+  const roleKey: RoleKey = user.role === "SUPV" ? "SUPV" : "ENG";
+  return Boolean(rolePermissions[roleKey]?.[action]);
+}
+
 // Ensure admin user exists
 (async () => {
   const admin = await prisma.user.findUnique({ where: { username: "admin" } });
@@ -81,6 +133,7 @@ async function ensureProjectExists(projectId: number) {
     });
     console.log("Admin user created with username=admin, password=admin");
   }
+  await loadPermissions();
 })();
 
 app.get(
@@ -203,10 +256,11 @@ app.get(
 app.post(
   "/projects/:projectId/sprints",
   requireAuth,
-  requireSupervisorOrAdmin,
   asyncHandler(async (req, res) => {
     const projectId = Number(req.params.projectId);
     await ensureProjectExists(projectId);
+    const user = (req as any).user as AuthUser;
+    if (!can(user, "sprint:create")) return res.status(403).json({ error: "Forbidden" });
     const { name, startDate, endDate } = req.body;
     if (!name) return res.status(400).json({ error: "name is required" });
     const sprint = await prisma.sprint.create({
@@ -224,12 +278,13 @@ app.post(
 app.put(
   "/sprints/:id",
   requireAuth,
-  requireSupervisorOrAdmin,
   asyncHandler(async (req, res) => {
+    const user = (req as any).user as AuthUser;
     const sprintId = Number(req.params.id);
     const existing = await prisma.sprint.findUnique({ where: { id: sprintId }, select: { projectId: true } });
     if (!existing) return res.status(404).json({ error: "Sprint not found" });
     await ensureProjectExists(existing.projectId);
+    if (!can(user, "sprint:update")) return res.status(403).json({ error: "Forbidden" });
     const { name, startDate, endDate } = req.body;
     const sprint = await prisma.sprint.update({
       where: { id: sprintId },
@@ -246,12 +301,13 @@ app.put(
 app.delete(
   "/sprints/:id",
   requireAuth,
-  requireSupervisorOrAdmin,
   asyncHandler(async (req, res) => {
+    const user = (req as any).user as AuthUser;
     const sprintId = Number(req.params.id);
     const existing = await prisma.sprint.findUnique({ where: { id: sprintId }, select: { projectId: true } });
     if (!existing) return res.status(404).json({ error: "Sprint not found" });
     await ensureProjectExists(existing.projectId);
+    if (!can(user, "sprint:delete")) return res.status(403).json({ error: "Forbidden" });
     await prisma.task.updateMany({ where: { sprintId }, data: { sprintId: null } });
     await prisma.sprint.delete({ where: { id: sprintId } });
     res.json({ ok: true });
@@ -286,6 +342,7 @@ app.post(
     const { title, description, projectId, assigneeId, status, priority, dueDate, sprintId, startDate, completeDate, completionPercent, comments, assignedResourceIds } = req.body;
     if (!title || !projectId) return res.status(400).json({ error: "title and projectId are required" });
     await ensureProjectExists(Number(projectId));
+    if (!can(user, "task:create")) return res.status(403).json({ error: "Forbidden" });
     const task = await prisma.task.create({
       data: {
         title,
@@ -326,12 +383,14 @@ app.put(
       const canEdit =
         existing.createdById === user.sub ||
         (Array.isArray(existing.assignedResourceIds) && existing.assignedResourceIds.map(String).includes(String(user.sub)));
-      if (!canEdit) return res.status(403).json({ error: "Forbidden" });
-      // ENG cannot reassign others
-      if (req.body.assigneeId !== undefined || req.body.assignedResourceIds !== undefined) {
+      if (!canEdit || !can(user, "task:update")) return res.status(403).json({ error: "Forbidden" });
+      if ((req.body.assigneeId !== undefined || req.body.assignedResourceIds !== undefined) && !can(user, "task:assign")) {
         return res.status(403).json({ error: "Forbidden: cannot change assignees" });
       }
-      // ENG cannot delete via update; handled in delete route
+    } else {
+      if ((req.body.assigneeId !== undefined || req.body.assignedResourceIds !== undefined) && !can(user, "task:assign")) {
+        return res.status(403).json({ error: "Forbidden: cannot change assignees" });
+      }
     }
     const task = await prisma.task.update({
       where: { id: Number(id) },
@@ -368,10 +427,7 @@ app.delete(
     });
     if (!existing) return res.status(404).json({ error: "Task not found" });
     await ensureProjectExists(existing.projectId);
-    const isSupervisor = user.isAdmin || (user as any).role === "SUPV";
-    if (!isSupervisor) {
-      return res.status(403).json({ error: "Forbidden: only admin or supervisor can delete tasks" });
-    }
+    if (!can(user, "task:delete")) return res.status(403).json({ error: "Forbidden: cannot delete task" });
     await prisma.task.delete({ where: { id: Number(id) } });
     res.json({ ok: true });
   })
@@ -420,16 +476,17 @@ app.get(
   requireAuth,
   asyncHandler(async (_req, res) => {
     const users = await prisma.user.findMany({ orderBy: { createdAt: "desc" } });
-    res.json(users.map(u => ({ id: u.id, username: u.username, role: u.role, status: u.status, isAdmin: u.isAdmin })));
+    res.json(users.map(u => ({ id: u.id, username: u.username, role: u.role, status: u.status, site: u.site, isAdmin: u.isAdmin })));
   })
 );
 
 app.post(
   "/resources",
   requireAuth,
-  requireSupervisorOrAdmin,
   asyncHandler(async (req, res) => {
-    const { username, role, status } = req.body;
+    const user = (req as any).user as AuthUser;
+    if (!can(user, "resource:manage")) return res.status(403).json({ error: "Forbidden" });
+    const { username, role, status, site } = req.body;
     if (!username) return res.status(400).json({ error: "username is required" });
     const existing = await prisma.user.findUnique({ where: { username } });
     if (existing) return res.status(409).json({ error: "username already in use" });
@@ -440,21 +497,23 @@ app.post(
         passwordHash,
         role: role === "SUPV" ? "SUPV" : "ENG",
         status: status === "OFF_DUTY" ? "OFF_DUTY" : "ON_DUTY",
+        site: site === "MT1" ? "MT1" : "PQP_HT",
       },
     });
-    res.json({ id: created.id, username: created.username, role: created.role, status: created.status, isAdmin: created.isAdmin });
+    res.json({ id: created.id, username: created.username, role: created.role, status: created.status, site: created.site, isAdmin: created.isAdmin });
   })
 );
 
 app.put(
   "/resources/:id",
   requireAuth,
-  requireSupervisorOrAdmin,
   asyncHandler(async (req, res) => {
+    const user = (req as any).user as AuthUser;
+    if (!can(user, "resource:manage")) return res.status(403).json({ error: "Forbidden" });
     const id = Number(req.params.id);
     const existing = await prisma.user.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ error: "User not found" });
-    const { role, status } = req.body;
+    const { role, status, site } = req.body;
     const roleValue = role === undefined ? undefined : role === "SUPV" ? "SUPV" : role === "ENG" ? "ENG" : null;
     if (roleValue === null) return res.status(400).json({ error: "role must be SUPV or ENG" });
     const updated = await prisma.user.update({
@@ -462,17 +521,19 @@ app.put(
       data: {
         role: roleValue,
         status: status === "OFF_DUTY" ? "OFF_DUTY" : status === "ON_DUTY" ? "ON_DUTY" : undefined,
+        site: site === undefined ? undefined : site === "MT1" ? "MT1" : "PQP_HT",
       },
     });
-    res.json({ id: updated.id, username: updated.username, role: updated.role, status: updated.status, isAdmin: updated.isAdmin });
+    res.json({ id: updated.id, username: updated.username, role: updated.role, status: updated.status, site: updated.site, isAdmin: updated.isAdmin });
   })
 );
 
 app.delete(
   "/resources/:id",
   requireAuth,
-  requireSupervisorOrAdmin,
   asyncHandler(async (req, res) => {
+    const user = (req as any).user as AuthUser;
+    if (!can(user, "resource:manage")) return res.status(403).json({ error: "Forbidden" });
     const id = Number(req.params.id);
     const existing = await prisma.user.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ error: "User not found" });
@@ -482,6 +543,36 @@ app.delete(
       data: { assignedResourceIds: { set: [] } },
     });
     res.json({ ok: true });
+  })
+);
+
+// Permissions (role-based, admin only)
+app.get(
+  "/permissions",
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (_req, res) => {
+    res.json(rolePermissions);
+  })
+);
+
+app.put(
+  "/permissions",
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const incoming = req.body as PermissionMap;
+    const roles: RoleKey[] = ["ENG", "SUPV"];
+    const actions = Object.keys(defaultPermissions.ENG);
+    const next: PermissionMap = { ...defaultPermissions };
+    roles.forEach(role => {
+      actions.forEach(action => {
+        const val = (incoming as any)?.[role]?.[action];
+        next[role][action] = typeof val === "boolean" ? val : defaultPermissions[role][action];
+      });
+    });
+    await savePermissions(next);
+    res.json(next);
   })
 );
 

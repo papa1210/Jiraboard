@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { useData } from '../../context/DataContext';
 
 const Sidebar: React.FC = () => {
-    const { importData, exportData, projects, currentProjectId, setCurrentProjectId, userEmail, logout } = useData();
+    const { importData, exportData, projects, currentProjectId, setCurrentProjectId, userEmail, logout, isAdmin } = useData();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleExport = () => {
@@ -46,7 +46,10 @@ const Sidebar: React.FC = () => {
         <NavLink
             to={to}
             className={({ isActive }) =>
-                `flex items-center p-3 my-1 rounded-lg transition-colors ${isActive ? 'bg-[#0052CC] text-white' : 'text-[#B3BAC5] hover:bg-[#0747A6] hover:text-white'
+                `flex items-center p-3 rounded-lg transition-colors ${
+                    isActive
+                        ? 'bg-[var(--color-primary-light)] text-[var(--color-text)] font-semibold'
+                        : 'text-[var(--color-text-muted)] hover:bg-[var(--color-primary-light)] hover:text-[var(--color-text)]'
                 }`
             }
         >
@@ -56,32 +59,33 @@ const Sidebar: React.FC = () => {
     );
 
     return (
-        <aside className="w-64 bg-[#0747A6] flex-shrink-0 p-4 flex flex-col justify-between">
+        <aside className="w-64 bg-[#FFFFFF] border-r border-[var(--color-border)] flex-shrink-0 p-4 flex flex-col justify-between shadow-sm">
             <div>
                 <div className="flex items-center mb-8">
-                    <svg className="w-8 h-8 text-[#0052CC]" viewBox="0 0 24 24" fill="currentColor"><path d="M12.001 2.001a10 10 0 100 20 10 10 0 000-20zm0 18a8 8 0 110-16 8 8 0 010 16zM12 7a.75.75 0 00-.75.75v3.5h-2.5a.75.75 0 000 1.5h3.25V7.75A.75.75 0 0012 7zM16.25 12a.75.75 0 00-1.5 0v3.5h-2.5a.75.75 0 000 1.5h3.25a.75.75 0 00.75-.75V12z"/></svg>
-                    <h1 className="text-xl font-bold ml-2 text-white">Task Manager</h1>
+                    <div className="w-10 h-10 rounded-full bg-[var(--color-primary)] text-white font-bold flex items-center justify-center">TM</div>
+                    <h1 className="text-xl font-bold ml-2 text-[var(--color-text)]">Task Manager</h1>
                 </div>
-                <nav>
+                <nav className="space-y-1">
                     <NavItem to="/" icon={<HomeIcon />} label="Dashboard" />
                     <NavItem to="/backlog" icon={<ListIcon />} label="Backlog" />
                     <NavItem to="/board" icon={<BoardIcon />} label="Board" />
                     <NavItem to="/resources" icon={<TeamIcon />} label="Resources" />
+                    {isAdmin && <NavItem to="/accounts" icon={<UserIcon />} label="Accounts" />}
                 </nav>
             </div>
-            <div>
+            <div className="space-y-2">
                 {userEmail && (
-                    <div className="mb-4 text-sm text-white space-y-2">
+                    <div className="mb-2 text-sm text-[var(--color-text)] space-y-2 bg-[var(--color-primary-light)] border border-[var(--color-border)] rounded-lg p-3">
                         <div className="flex items-center justify-between">
-                            <span>Signed in as</span>
-                            <button onClick={logout} className="text-xs underline text-[#B3BAC5] hover:text-white">Logout</button>
+                            <span className="font-semibold">Signed in</span>
+                            <button onClick={logout} className="text-xs underline text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]">Logout</button>
                         </div>
-                        <div className="text-[#B3BAC5] break-words">{userEmail}</div>
+                        <div className="text-[var(--color-text-muted)] break-words">{userEmail}</div>
                         {projects.length > 0 && (
                             <div>
-                                <label className="block mb-1">Project</label>
+                                <label className="block mb-1 text-[var(--color-text-muted)]">Project</label>
                                 <select
-                                    className="w-full rounded bg-white text-black p-2"
+                                    className="w-full rounded bg-white text-[var(--color-text)] p-2 border border-[var(--color-border)]"
                                     value={currentProjectId ?? ''}
                                     onChange={(e) => setCurrentProjectId(e.target.value ? Number(e.target.value) : null)}
                                 >
@@ -93,11 +97,11 @@ const Sidebar: React.FC = () => {
                         )}
                     </div>
                 )}
-                <button onClick={handleImportClick} className="w-full flex items-center p-3 my-1 rounded-lg text-[#B3BAC5] hover:bg-[#0052CC] hover:text-white">
+                <button onClick={handleImportClick} className="w-full flex items-center p-3 my-1 rounded-lg text-[var(--color-text)] hover:bg-[var(--color-primary-light)] transition-colors">
                     <ImportIcon /> <span className="ml-4">Import Data</span>
                 </button>
                 <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
-                <button onClick={handleExport} className="w-full flex items-center p-3 my-1 rounded-lg text-[#B3BAC5] hover:bg-[#0052CC] hover:text-white">
+                <button onClick={handleExport} className="w-full flex items-center p-3 my-1 rounded-lg text-[var(--color-text)] hover:bg-[var(--color-primary-light)] transition-colors">
                     <ExportIcon /> <span className="ml-4">Export Data</span>
                 </button>
             </div>
@@ -111,5 +115,6 @@ const BoardIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w
 const TeamIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-1a4 4 0 00-5-4m0 5v-1a4 4 0 00-3-3.87M17 20H7m0 0H2v-1a4 4 0 015-4m10-4a3 3 0 10-6 0 3 3 0 006 0zm-10 0a3 3 0 10-6 0 3 3 0 006 0z" /></svg>;
 const ImportIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>;
 const ExportIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>;
+const UserIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.121 17.804A9 9 0 1112 21a9 9 0 01-6.879-3.196z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 
 export default Sidebar;

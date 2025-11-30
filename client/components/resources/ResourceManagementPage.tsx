@@ -5,41 +5,27 @@ import Modal from '../ui/Modal';
 
 const ResourceManagementPage: React.FC = () => {
     const { resources, addResource, updateResource, deleteResource, isAdmin, currentUserRole } = useData();
-    const [name, setName] = useState('');
-    const [role, setRole] = useState<'SUPV' | 'ENG'>('ENG');
-    const [status, setStatus] = useState<DutyStatus>(DutyStatus.OnDuty);
     const [error, setError] = useState('');
     const [editingResource, setEditingResource] = useState<Resource | null>(null);
     const [editName, setEditName] = useState('');
     const [editRole, setEditRole] = useState<'SUPV' | 'ENG'>('ENG');
     const [editStatus, setEditStatus] = useState<DutyStatus>(DutyStatus.OnDuty);
+    const [editSite, setEditSite] = useState<'PQP_HT' | 'MT1'>('PQP_HT');
     const [editError, setEditError] = useState('');
+    const [draggingId, setDraggingId] = useState<string | null>(null);
 
-    const onDutyResources = useMemo(
-        () => resources.filter(resource => resource.status === DutyStatus.OnDuty),
-        [resources]
-    );
-    const offDutyResources = useMemo(
-        () => resources.filter(resource => resource.status === DutyStatus.OffDuty),
-        [resources]
-    );
-
-    const handleSubmit = async (event: React.FormEvent) => {
-        event.preventDefault();
-        if (!name.trim() || !role) {
-            setError('Name and Role are required.');
-            return;
-        }
-        try {
-            await addResource({ name: name.trim(), role, status });
-            setName('');
-            setRole('ENG');
-            setStatus(DutyStatus.OnDuty);
-            setError('');
-        } catch (e: any) {
-            setError(e?.message || 'Failed to add resource');
-        }
-    };
+    const groupedBySite = useMemo(() => {
+        const init = { PQP_HT: { on: [], off: [] } as { on: Resource[]; off: Resource[] }, MT1: { on: [], off: [] } };
+        resources.forEach(r => {
+            const site = r.site === 'MT1' ? 'MT1' : 'PQP_HT';
+            if (r.status === DutyStatus.OnDuty) {
+                init[site].on.push(r);
+            } else {
+                init[site].off.push(r);
+            }
+        });
+        return init;
+    }, [resources]);
 
     const handleToggleStatus = (resource: Resource) => {
         const nextStatus = resource.status === DutyStatus.OnDuty ? DutyStatus.OffDuty : DutyStatus.OnDuty;
@@ -51,6 +37,7 @@ const ResourceManagementPage: React.FC = () => {
         setEditName(resource.name);
         setEditRole(resource.role);
         setEditStatus(resource.status);
+        setEditSite(resource.site);
         setEditError('');
     };
 
@@ -66,12 +53,21 @@ const ResourceManagementPage: React.FC = () => {
                     name: editName.trim(),
                     role: editRole,
                     status: editStatus,
+                    site: editSite,
                 });
                 setEditingResource(null);
             } catch (e: any) {
                 setEditError(e?.message || 'Failed to update resource');
             }
         }
+    };
+
+    const handleDrop = (site: 'PQP_HT' | 'MT1', status: DutyStatus) => {
+        if (!draggingId) return;
+        const resource = resources.find(r => r.id === draggingId);
+        if (!resource) return;
+        updateResource(resource.id, { site, status });
+        setDraggingId(null);
     };
 
     const canModify = isAdmin || currentUserRole === 'SUPV';
@@ -81,88 +77,73 @@ const ResourceManagementPage: React.FC = () => {
         <div className="space-y-6">
             <div className="flex flex-col gap-2">
                 <h1 className="text-3xl font-bold text-black">Human Resources</h1>
-                <p className="text-sm text-[#5E6C84]">Quan ly nhan su dang On Duty va Off Duty cung ten va vai tro.</p>
+                <p className="text-sm text-[#5E6C84]">Quản lý On/Off Duty cho PQP-HT và MT1, kéo thả để chuyển cột.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <SummaryCard title="On Duty" value={onDutyResources.length} accent="bg-accent-green" />
-                <SummaryCard title="Off Duty" value={offDutyResources.length} accent="bg-accent-yellow" />
-                <SummaryCard title="Total" value={resources.length} accent="bg-accent-blue" />
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <SummaryCard title="PQP-HT On Duty" value={groupedBySite.PQP_HT.on.length} accent="bg-accent-green" />
+                <SummaryCard title="PQP-HT Off Duty" value={groupedBySite.PQP_HT.off.length} accent="bg-accent-yellow" />
+                <SummaryCard title="MT1 On Duty" value={groupedBySite.MT1.on.length} accent="bg-accent-green" />
+                <SummaryCard title="MT1 Off Duty" value={groupedBySite.MT1.off.length} accent="bg-accent-yellow" />
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm border border-[#DFE1E6] p-6">
-                <h2 className="text-xl font-bold text-black mb-4">Add Member (username)</h2>
-                <form className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end" onSubmit={handleSubmit}>
-                    <div className="col-span-1 md:col-span-1">
-                        <label className="block text-sm font-medium text-[#5E6C84] mb-1">Username</label>
-                        <input
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            className="w-full p-2 bg-white border border-[#DFE1E6] rounded-md text-[#172B4D] focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
-                            placeholder="username"
-                            disabled={!canModify}
-                        />
-                    </div>
-                    <div className="col-span-1 md:col-span-1">
-                        <label className="block text-sm font-medium text-[#5E6C84] mb-1">Role</label>
-                        <select
-                            value={role}
-                            onChange={(e) => setRole(e.target.value as 'SUPV' | 'ENG')}
-                            className="w-full p-2 bg-white border border-[#DFE1E6] rounded-md text-[#172B4D] focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
-                            disabled={!canModify}
-                        >
-                            <option value="SUPV">Supv</option>
-                            <option value="ENG">Eng</option>
-                        </select>
-                    </div>
-                    <div className="col-span-1 md:col-span-1">
-                        <label className="block text-sm font-medium text-[#5E6C84] mb-1">Duty</label>
-                        <select
-                            value={status}
-                            onChange={(e) => setStatus(e.target.value as DutyStatus)}
-                            className="w-full p-2 bg-white border border-[#DFE1E6] rounded-md text-[#172B4D] focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
-                            disabled={!canModify}
-                        >
-                            <option value={DutyStatus.OnDuty}>On Duty</option>
-                            <option value={DutyStatus.OffDuty}>Off Duty</option>
-                        </select>
-                    </div>
-                    <div className="col-span-1 md:col-span-1 flex gap-3 md:justify-end">
-                        <button
-                            type="submit"
-                            disabled={!canModify}
-                            className={`font-bold py-2 px-4 rounded-md transition-colors w-full md:w-auto ${canModify ? 'bg-[#0052CC] hover:bg-[#0747A6] text-white' : 'bg-gray-300 text-gray-600 cursor-not-allowed'}`}
-                        >
-                            Add
-                        </button>
-                    </div>
-                </form>
-                {error && <p className="text-accent-red text-sm mt-2">{error}</p>}
-            </div>
+            {error && <p className="text-accent-red text-sm mt-2">{error}</p>}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <ResourceColumn
-                    title="On Duty"
-                    resources={onDutyResources}
-                    emptyText="Chua co ai On Duty."
+                    title="PQP-HT On Duty"
+                    resources={groupedBySite.PQP_HT.on}
+                    emptyText="Chưa có ai On Duty (PQP-HT)."
                     badgeClass="bg-accent-green"
                     onToggle={handleToggleStatus}
                     onDelete={deleteResource}
                     onEdit={openEdit}
                     canDelete={canDelete}
                     canModify={canModify}
+                    onDrop={(status) => handleDrop('PQP_HT', status)}
+                    onDragStart={setDraggingId}
                 />
                 <ResourceColumn
-                    title="Off Duty"
-                    resources={offDutyResources}
-                    emptyText="Chua co ai Off Duty."
+                    title="PQP-HT Off Duty"
+                    resources={groupedBySite.PQP_HT.off}
+                    emptyText="Chưa có ai Off Duty (PQP-HT)."
                     badgeClass="bg-accent-yellow"
                     onToggle={handleToggleStatus}
                     onDelete={deleteResource}
                     onEdit={openEdit}
                     canDelete={canDelete}
                     canModify={canModify}
+                    onDrop={(status) => handleDrop('PQP_HT', status)}
+                    onDragStart={setDraggingId}
+                />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <ResourceColumn
+                    title="MT1 On Duty"
+                    resources={groupedBySite.MT1.on}
+                    emptyText="Chưa có ai On Duty (MT1)."
+                    badgeClass="bg-accent-green"
+                    onToggle={handleToggleStatus}
+                    onDelete={deleteResource}
+                    onEdit={openEdit}
+                    canDelete={canDelete}
+                    canModify={canModify}
+                    onDrop={(status) => handleDrop('MT1', status)}
+                    onDragStart={setDraggingId}
+                />
+                <ResourceColumn
+                    title="MT1 Off Duty"
+                    resources={groupedBySite.MT1.off}
+                    emptyText="Chưa có ai Off Duty (MT1)."
+                    badgeClass="bg-accent-yellow"
+                    onToggle={handleToggleStatus}
+                    onDelete={deleteResource}
+                    onEdit={openEdit}
+                    canDelete={canDelete}
+                    canModify={canModify}
+                    onDrop={(status) => handleDrop('MT1', status)}
+                    onDragStart={setDraggingId}
                 />
             </div>
 
@@ -190,6 +171,17 @@ const ResourceManagementPage: React.FC = () => {
                         >
                             <option value="SUPV">Supv</option>
                             <option value="ENG">Eng</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-[#5E6C84] mb-1">Site</label>
+                        <select
+                            value={editSite}
+                            onChange={(e) => setEditSite(e.target.value as 'PQP_HT' | 'MT1')}
+                            className="w-full p-2 bg-white border border-[#DFE1E6] rounded-md text-[#172B4D] focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                        >
+                            <option value="PQP_HT">PQP-HT</option>
+                            <option value="MT1">MT1</option>
                         </select>
                     </div>
                     <div>
@@ -226,10 +218,10 @@ const ResourceManagementPage: React.FC = () => {
 };
 
 const SummaryCard = ({ title, value, accent }: { title: string; value: number; accent: string }) => (
-    <div className="bg-white rounded-lg p-4 flex items-center justify-between shadow-sm border border-[#DFE1E6]">
+    <div className="bg-white rounded-2xl p-4 flex items-center justify-between shadow-[var(--shadow-soft)] border border-[var(--color-border)]">
         <div>
-            <p className="text-sm text-[#5E6C84] font-medium">{title}</p>
-            <p className="text-2xl font-bold text-[#172B4D]">{value}</p>
+            <p className="text-sm text-[var(--color-text-muted)] font-medium">{title}</p>
+            <p className="text-2xl font-bold text-[var(--color-text)]">{value}</p>
         </div>
         <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white ${accent}`}>
             {title.slice(0, 1)}
@@ -237,15 +229,31 @@ const SummaryCard = ({ title, value, accent }: { title: string; value: number; a
     </div>
 );
 
-const ResourceColumn = ({ title, resources, emptyText, badgeClass, onToggle, onDelete, onEdit, canDelete, canModify }: { title: string; resources: Resource[]; emptyText: string; badgeClass: string; onToggle: (resource: Resource) => void; onDelete: (id: string) => void; onEdit: (resource: Resource) => void; canDelete: boolean; canModify: boolean }) => (
-    <div className="bg-white rounded-lg shadow-sm border border-[#DFE1E6] p-4">
+const ResourceColumn = ({ title, resources, emptyText, badgeClass, onToggle, onDelete, onEdit, canDelete, canModify, onDrop, onDragStart }: { title: string; resources: Resource[]; emptyText: string; badgeClass: string; onToggle: (resource: Resource) => void; onDelete: (id: string) => void; onEdit: (resource: Resource) => void; canDelete: boolean; canModify: boolean; onDrop: (status: DutyStatus) => void; onDragStart: (id: string) => void }) => (
+    <div
+        className="bg-white rounded-2xl shadow-[var(--shadow-soft)] border border-[var(--color-border)] p-4"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+            e.preventDefault();
+            onDrop(title.includes('Off') ? DutyStatus.OffDuty : DutyStatus.OnDuty);
+        }}
+    >
         <div className="flex items-center justify-between mb-3">
             <h3 className="text-lg font-bold text-black">{title}</h3>
             <span className={`px-3 py-1 text-xs font-semibold rounded-full text-white ${badgeClass}`}>{resources.length} nguoi</span>
         </div>
-        <div className="space-y-3">
+        <div className="space-y-3 min-h-[100px]">
             {resources.map(resource => (
-                <ResourceCard key={resource.id} resource={resource} onToggle={onToggle} onDelete={onDelete} onEdit={onEdit} canDelete={canDelete} canModify={canModify} />
+                <ResourceCard
+                    key={resource.id}
+                    resource={resource}
+                    onToggle={onToggle}
+                    onDelete={onDelete}
+                    onEdit={onEdit}
+                    canDelete={canDelete}
+                    canModify={canModify}
+                    onDragStart={onDragStart}
+                />
             ))}
             {resources.length === 0 && (
                 <p className="text-sm text-text-secondary text-center py-6">{emptyText}</p>
@@ -254,12 +262,16 @@ const ResourceColumn = ({ title, resources, emptyText, badgeClass, onToggle, onD
     </div>
 );
 
-const ResourceCard = ({ resource, onToggle, onDelete, onEdit, canDelete, canModify }: { resource: Resource; onToggle: (resource: Resource) => void; onDelete: (id: string) => void; onEdit: (resource: Resource) => void; canDelete: boolean; canModify: boolean }) => (
-    <div className="border border-[#DFE1E6] rounded-lg p-4 flex flex-col gap-3 bg-[#F8F9FB]">
+const ResourceCard = ({ resource, onToggle, onDelete, onEdit, canDelete, canModify, onDragStart }: { resource: Resource; onToggle: (resource: Resource) => void; onDelete: (id: string) => void; onEdit: (resource: Resource) => void; canDelete: boolean; canModify: boolean; onDragStart: (id: string) => void }) => (
+    <div
+        className="border border-[var(--color-border)] rounded-xl p-4 flex flex-col gap-3 bg-[#F8F9FB]"
+        draggable={canModify}
+        onDragStart={() => onDragStart(resource.id)}
+    >
         <div className="flex items-center justify-between">
             <div>
-                <p className="text-base font-semibold text-[#172B4D]">{resource.name}</p>
-                <p className="text-sm text-[#5E6C84]">{resource.role}</p>
+                <p className="text-base font-semibold text-[var(--color-text)]">{resource.name}</p>
+                <p className="text-sm text-[var(--color-text-muted)]">{resource.role} • {resource.site}</p>
             </div>
             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${resource.status === DutyStatus.OnDuty ? 'bg-accent-green text-white' : 'bg-accent-yellow text-[#172B4D]'}`}>
                 {resource.status}

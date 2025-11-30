@@ -164,6 +164,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         name: r.username,
         role: r.role === 'SUPV' ? 'SUPV' : 'ENG',
         status: r.status === 'OFF_DUTY' ? DutyStatus.OffDuty : DutyStatus.OnDuty,
+        site: r.site === 'MT1' ? 'MT1' : 'PQP_HT',
       })));
     } catch (error) {
       console.error('Error loading data from API', error);
@@ -301,6 +302,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       username: resourceData.name.trim(),
       role: resourceData.role === 'SUPV' ? 'SUPV' : 'ENG',
       status: resourceData.status === DutyStatus.OffDuty ? 'OFF_DUTY' : 'ON_DUTY',
+      site: resourceData.site === 'MT1' ? 'MT1' : 'PQP_HT',
     };
     const created = await resourcesApi.create(payload);
     const newResource: Resource = {
@@ -308,6 +310,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       name: (created as any).username || (created as any).name || resourceData.name,
       role: (created as any).role === 'SUPV' ? 'SUPV' : 'ENG',
       status: (created as any).status === 'OFF_DUTY' ? DutyStatus.OffDuty : DutyStatus.OnDuty,
+      site: (created as any).site === 'MT1' ? 'MT1' : (resourceData.site || 'PQP_HT'),
     };
     setResources(prev => [...prev, newResource]);
     return newResource;
@@ -317,6 +320,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const payload: any = {};
     if (updatedData.role !== undefined) payload.role = updatedData.role === 'SUPV' ? 'SUPV' : 'ENG';
     if (updatedData.status !== undefined) payload.status = updatedData.status === DutyStatus.OffDuty ? 'OFF_DUTY' : 'ON_DUTY';
+    if (updatedData.site !== undefined) payload.site = updatedData.site === 'MT1' ? 'MT1' : 'PQP_HT';
     const numericId = Number(resourceId);
     if (!Number.isNaN(numericId)) {
       await resourcesApi.update(numericId, payload);
@@ -330,6 +334,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         name: updatedData.name !== undefined ? updatedData.name.trim() : resource.name,
         role: updatedData.role !== undefined ? updatedData.role.trim() : resource.role,
         status: nextStatus,
+        site: updatedData.site ?? resource.site,
       };
     }));
     if (updatedData.status === DutyStatus.OffDuty) {

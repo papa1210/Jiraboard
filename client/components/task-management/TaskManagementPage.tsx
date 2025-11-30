@@ -101,7 +101,7 @@ const TaskManagementPage: React.FC = () => {
                     <select
                         value={selectedSprintId || ''}
                         onChange={(e) => setSelectedSprintId(e.target.value)}
-                        className="p-2 bg-white border border-[#DFE1E6] rounded-md text-[#172B4D] focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                        className="p-2 bg-[#F9FAFB] border border-[var(--color-border)] rounded-lg text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                     >
                         {sortedSprints.map((sprint: Sprint) => (
                             <option key={sprint.id} value={sprint.id}>{sprint.name}</option>
@@ -110,14 +110,14 @@ const TaskManagementPage: React.FC = () => {
                     </select>
                     <button
                         onClick={() => setCreateTaskModalOpen(true)}
-                        className="bg-accent-green hover:bg-opacity-90 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
+                        className="btn-primary"
                         disabled={!selectedSprintId}
                     >
                         Create Task
                     </button>
                     <button
                         onClick={handleExportReport}
-                        className="bg-[#172B4D] hover:bg-[#0f1d3a] text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
+                        className="btn-ghost"
                         disabled={!selectedSprintId}
                     >
                         Sprint Report

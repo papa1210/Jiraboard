@@ -20,6 +20,7 @@ export interface Resource {
   name: string;
   role: 'SUPV' | 'ENG';
   status: DutyStatus;
+  site: 'PQP_HT' | 'MT1';
 }
 
 export interface Task {
