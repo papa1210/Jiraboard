@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: task_manager
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    working_dir: /app
+    command: ["npm", "run", "dev"]
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/task_manager
+      CORS_ORIGIN: http://localhost:5173
+      JWT_SECRET: dev-secret
+    ports:
+      - "4000:4000"
+    depends_on:
+      - db
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    working_dir: /app
+    command: ["npm", "run", "dev", "--", "--host", "--port", "5173"]
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    environment:
+      VITE_API_URL: http://localhost:4000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+
+volumes:
+  db_data:
