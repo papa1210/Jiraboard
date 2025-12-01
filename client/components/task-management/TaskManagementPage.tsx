@@ -1,38 +1,60 @@
-
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { Sprint, Status, Task } from '../../types';
+import { Task } from '../../types';
 import KanbanBoard from './KanbanBoard';
 import Modal from '../ui/Modal';
 import TaskForm from '../shared/TaskForm';
 
 const TaskManagementPage: React.FC = () => {
-    const { sprints, getTasksForSprint } = useData();
-    const [selectedSprintId, setSelectedSprintId] = useState<string | null>(sprints[0]?.id || null);
+    const { tasks } = useData();
+    const now = new Date();
+    const getInitialSelection = () => {
+        try {
+            const raw = window.localStorage.getItem('board-month-selection');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed.year && parsed.month) {
+                    return {
+                        year: Number(parsed.year),
+                        month: Number(parsed.month),
+                    };
+                }
+            }
+        } catch (err) {
+            console.warn('Failed to read board month selection', err);
+        }
+        return { year: now.getFullYear(), month: now.getMonth() + 1 };
+    };
+    const initial = getInitialSelection();
+    const [selectedYear, setSelectedYear] = useState<number>(initial.year);
+    const [selectedMonth, setSelectedMonth] = useState<number>(initial.month);
     const [isCreateTaskModalOpen, setCreateTaskModalOpen] = useState(false);
 
-    const sortedSprints = useMemo(() => {
-        return [...sprints].sort((a, b) => b.name.localeCompare(a.name));
-    }, [sprints]);
-    
-    if (selectedSprintId === null && sortedSprints.length > 0) {
-        setSelectedSprintId(sortedSprints[0].id);
-    }
-
-    useEffect(() => {
-        if (selectedSprintId && !sprints.some(s => s.id === selectedSprintId)) {
-            setSelectedSprintId(sprints[0]?.id || null);
+    const availableYears = useMemo(() => {
+        const years = new Set<number>();
+        tasks.forEach(t => years.add(t.year));
+        for (let i = -1; i <= 4; i++) {
+            years.add(now.getFullYear() + i);
         }
-    }, [selectedSprintId, sprints]);
+        return Array.from(years).sort((a, b) => b - a);
+    }, [tasks, now]);
+
+    const persistSelection = (year: number, month: number) => {
+        try {
+            window.localStorage.setItem('board-month-selection', JSON.stringify({ year, month }));
+        } catch (err) {
+            console.warn('Failed to persist board month selection', err);
+        }
+    };
 
     const formatDate = (value: string | null | undefined) => {
         if (!value) return '';
         return new Date(value).toLocaleDateString();
     };
 
-    const buildReportHtml = (sprint: Sprint, tasks: Task[]) => {
+    const buildReportHtml = (month: number, year: number, monthTasks: Task[]) => {
         const generatedOn = new Date().toLocaleString();
-        const rows = tasks.map(task => `
+        const rows = monthTasks.map(task => `
             <tr>
                 <td>${task.taskId}</td>
                 <td>${formatDate(task.startDate)}</td>
@@ -55,10 +77,9 @@ const TaskManagementPage: React.FC = () => {
         </head>
         <body>
           <table>
-            <caption>Sprint Report</caption>
+            <caption>Month Report</caption>
             <tr><th>Generated On</th><td>${generatedOn}</td></tr>
-            <tr><th>Sprint Name</th><td>${sprint.name}</td></tr>
-            <tr><th>Sprint Period</th><td>${formatDate(sprint.startDate)} - ${formatDate(sprint.endDate)}</td></tr>
+            <tr><th>Month</th><td>${year} - ${String(month).padStart(2,'0')}</td></tr>
           </table>
           <br />
           <table>
@@ -69,24 +90,21 @@ const TaskManagementPage: React.FC = () => {
               <th>Status</th>
               <th>Notes</th>
             </tr>
-            ${rows || '<tr><td colspan="5">No tasks in this sprint</td></tr>'}
+            ${rows || '<tr><td colspan="5">No tasks in this month</td></tr>'}
           </table>
         </body>
         </html>`;
     };
 
     const handleExportReport = () => {
-        if (!selectedSprintId) return;
-        const sprint = sprints.find(s => s.id === selectedSprintId);
-        if (!sprint) return;
-        const sprintTasks = getTasksForSprint(selectedSprintId);
-        const html = buildReportHtml(sprint, sprintTasks);
+        const monthTasks = tasks.filter(t => t.year === selectedYear && t.month === selectedMonth);
+        const html = buildReportHtml(selectedMonth, selectedYear, monthTasks);
         const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        const sprintLabel = sprint.name.replace(/\\s+/g, '-');
+        const label = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
         link.href = url;
-        link.download = `${sprintLabel}-report.xls`;
+        link.download = `${label}-report.xls`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -98,49 +116,61 @@ const TaskManagementPage: React.FC = () => {
             <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
                 <h1 className="text-3xl font-bold text-black">Task Management</h1>
                 <div className="flex items-center gap-4">
-                    <select
-                        value={selectedSprintId || ''}
-                        onChange={(e) => setSelectedSprintId(e.target.value)}
-                        className="p-2 bg-[#F9FAFB] border border-[var(--color-border)] rounded-lg text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                    >
-                        {sortedSprints.map((sprint: Sprint) => (
-                            <option key={sprint.id} value={sprint.id}>{sprint.name}</option>
-                        ))}
-                         {sortedSprints.length === 0 && <option disabled>No Sprints Available</option>}
+                    <div className="flex flex-col">
+                        <span className="text-xs text-[var(--color-text-muted)]">Year</span>
+                        <select
+                            value={selectedYear}
+                            onChange={(e) => {
+                                const nextYear = Number(e.target.value);
+                                setSelectedYear(nextYear);
+                                persistSelection(nextYear, selectedMonth);
+                            }}
+                            className="p-2 bg-[#F9FAFB] border border-[var(--color-border)] rounded-lg text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                        >
+                            {availableYears.map(year => (
+                                <option key={year} value={year}>{year}</option>
+                            ))}
+                        </select>
+                    </div>
+                        <select
+                            value={selectedMonth}
+                            onChange={(e) => {
+                                const nextMonth = Number(e.target.value);
+                                setSelectedMonth(nextMonth);
+                                persistSelection(selectedYear, nextMonth);
+                            }}
+                            className="p-2 bg-[#F9FAFB] border border-[var(--color-border)] rounded-lg text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                        >
+                            {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                                <option key={m} value={m}>{`Tháng ${String(m).padStart(2, '0')}`}</option>
+                            ))}
                     </select>
                     <button
                         onClick={() => setCreateTaskModalOpen(true)}
                         className="btn-primary"
-                        disabled={!selectedSprintId}
                     >
                         Create Task
                     </button>
                     <button
                         onClick={handleExportReport}
                         className="btn-ghost"
-                        disabled={!selectedSprintId}
                     >
-                        Sprint Report
+                        Export Report
                     </button>
                 </div>
             </div>
             
-            {selectedSprintId ? (
-                 <KanbanBoard sprintId={selectedSprintId} />
-            ) : (
-                <div className="flex-1 flex items-center justify-center bg-surface rounded-lg">
-                    <div className="text-center">
-                        <h2 className="text-2xl font-semibold text-text-primary">No Sprint Selected</h2>
-                        <p className="text-text-secondary mt-2">Please create a new sprint or select an existing one to view the board.</p>
-                    </div>
-                </div>
-            )}
+            <KanbanBoard year={selectedYear} month={selectedMonth} />
             
             <Modal isOpen={isCreateTaskModalOpen} onClose={() => setCreateTaskModalOpen(false)} title="Create New Task">
                 <TaskForm 
-                    sprints={sprints}
                     onTaskCreated={() => setCreateTaskModalOpen(false)}
-                    initialData={{ sprintId: selectedSprintId }}
+                    initialData={{ 
+                        sprintId: null,
+                        year: selectedYear,
+                        month: selectedMonth,
+                        startDate: new Date(selectedYear, selectedMonth - 1, 1).toISOString().split('T')[0],
+                    }}
                 />
             </Modal>
         </div>

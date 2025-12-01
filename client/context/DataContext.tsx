@@ -5,7 +5,7 @@ import { authApi, projectsApi, tasksApi, sprintsApi, resourcesApi, setAuthToken 
 
 interface DataContextType {
   tasks: Task[];
-  sprints: Sprint[];
+  sprints: Sprint[]; // kept for compatibility but deprecated
   resources: Resource[];
   projects: { id: number; name: string; key: string }[];
   currentProjectId: number | null;
@@ -19,13 +19,10 @@ interface DataContextType {
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   logout: () => void;
   refreshData: () => Promise<void>;
-  addTask: (taskData: Omit<Task, 'id' | 'createdAt' | 'startDate' | 'status' | 'comments' | 'completionPercent' | 'completeDate' | 'assignedResourceIds'> & { sprintId: string | null, completionPercent?: number, priority?: Priority, assignedResourceIds?: string[] }) => Promise<void>;
+  addTask: (taskData: Omit<Task, 'id' | 'createdAt' | 'status' | 'comments' | 'completionPercent' | 'completeDate' | 'assignedResourceIds'> & { sprintId?: string | null, completionPercent?: number, priority?: Priority, assignedResourceIds?: string[] }) => Promise<void>;
   updateTask: (taskId: string, updatedData: Partial<Task>) => Promise<void>;
   deleteTask: (taskId:string) => Promise<void>;
-  addSprint: (sprintData: Omit<Sprint, 'id'>) => Sprint;
-  deleteSprint: (sprintId: string) => void;
-  getTasksForSprint: (sprintId: string | null) => Task[];
-  getBacklogTasks: () => Task[];
+  getTasksForMonth: (year: number, month: number) => Task[];
   addResource: (resourceData: Omit<Resource, 'id' | 'status'> & { status?: DutyStatus }) => Promise<Resource>;
   updateResource: (resourceId: string, updatedData: Partial<Resource>) => Promise<void>;
   deleteResource: (resourceId: string) => Promise<void>;
@@ -93,9 +90,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
-  const mapTaskFromApi = useCallback((apiTask: any): Task => {
+const toYearMonth = (dateIso: string) => {
+  const d = new Date(dateIso);
+  return { year: d.getFullYear(), month: d.getMonth() + 1 };
+};
+
+const mapTaskFromApi = useCallback((apiTask: any): Task => {
     const created = apiTask.createdAt ? new Date(apiTask.createdAt).toISOString() : new Date().toISOString();
     const isDone = apiTask.status === 'DONE';
+    const startIso = apiTask.startDate ? new Date(apiTask.startDate).toISOString() : created;
+    const { year, month } = toYearMonth(startIso);
     return {
       id: String(apiTask.id),
       taskId: apiTask.title || `TASK-${apiTask.id}`,
@@ -104,11 +108,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       priority: apiTask.priority ? Priority.Yes : Priority.No,
       createdAt: created,
       sprintId: apiTask.sprintId ? String(apiTask.sprintId) : null,
-      startDate: apiTask.startDate ? new Date(apiTask.startDate).toISOString().split('T')[0] : created.split('T')[0],
+      startDate: startIso.split('T')[0],
+      year,
+      month,
       comments: apiTask.notes || '',
       completionPercent: typeof apiTask.completionPercent === 'number' ? apiTask.completionPercent : (isDone ? 100 : 0),
       completeDate: apiTask.completeDate ? new Date(apiTask.completeDate).toISOString().split('T')[0] : (isDone ? (apiTask.updatedAt ? new Date(apiTask.updatedAt).toISOString().split('T')[0] : null) : null),
       assignedResourceIds: Array.isArray(apiTask.assignedResourceIds) ? apiTask.assignedResourceIds.map(String) : [],
+      estimatedHours: typeof apiTask.estimatedHours === 'number' ? apiTask.estimatedHours : 0,
+      actualHours: typeof apiTask.actualHours === 'number' ? apiTask.actualHours : 0,
     };
   }, [mapStatusFromApi]);
 
@@ -226,33 +234,42 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const addTask = useCallback(
-    async (taskData: Omit<Task, 'id' | 'createdAt' | 'startDate' | 'status' | 'comments' | 'completionPercent' | 'completeDate' | 'assignedResourceIds'> & { sprintId: string | null, completionPercent?: number, priority?: Priority, assignedResourceIds?: string[] }) => {
+    async (taskData: Omit<Task, 'id' | 'createdAt' | 'status' | 'comments' | 'completionPercent' | 'completeDate' | 'assignedResourceIds'> & { sprintId?: string | null, completionPercent?: number, priority?: Priority, assignedResourceIds?: string[] }) => {
       if (!currentProjectId) {
         throw new Error('No project selected');
       }
+    const year = taskData.year ?? new Date().getFullYear();
+    const month = taskData.month ?? (new Date().getMonth() + 1);
+    const startDate = taskData.startDate || new Date(year, month - 1, 1).toISOString().split('T')[0];
     const newTask = await tasksApi.create({
       title: taskData.taskId,
       description: taskData.description,
       projectId: currentProjectId,
-      sprintId: taskData.sprintId ? Number(taskData.sprintId) : null,
+      sprintId: null,
       status: mapStatusToApi(Status.ToDo),
       priority: taskData.priority === Priority.Yes ? 'HIGH' : 'MEDIUM',
-      startDate: taskData.startDate || null,
+      startDate,
       completeDate: taskData.completeDate || null,
       completionPercent: taskData.completionPercent ?? 0,
       comments: taskData.comments || '',
       assignedResourceIds: taskData.assignedResourceIds ?? [],
+      estimatedHours: typeof taskData.estimatedHours === 'number' ? taskData.estimatedHours : 0,
+      actualHours: typeof taskData.actualHours === 'number' ? taskData.actualHours : 0,
     });
     const mapped = mapTaskFromApi(newTask);
     const merged: Task = {
       ...mapped,
       sprintId: taskData.sprintId ?? mapped.sprintId,
+      year,
+      month,
       completionPercent: taskData.completionPercent ?? mapped.completionPercent ?? 0,
       completeDate: taskData.completeDate ?? mapped.completeDate ?? null,
-      startDate: taskData.startDate ?? mapped.startDate,
+      startDate: startDate ?? mapped.startDate,
       comments: taskData.comments ?? mapped.comments ?? '',
       assignedResourceIds: taskData.assignedResourceIds ?? mapped.assignedResourceIds ?? [],
       priority: taskData.priority ?? mapped.priority,
+      estimatedHours: taskData.estimatedHours ?? mapped.estimatedHours ?? 0,
+      actualHours: taskData.actualHours ?? mapped.actualHours ?? 0,
     };
     setTasks(prev => [merged, ...prev]);
   },
@@ -265,12 +282,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (updatedData.description !== undefined) apiPayload.description = updatedData.description;
     if (updatedData.status !== undefined) apiPayload.status = mapStatusToApi(updatedData.status);
     if (updatedData.priority !== undefined) apiPayload.priority = updatedData.priority === Priority.Yes ? 'HIGH' : 'MEDIUM';
-    if (updatedData.sprintId !== undefined) apiPayload.sprintId = updatedData.sprintId ? Number(updatedData.sprintId) : null;
+    if (updatedData.sprintId !== undefined) apiPayload.sprintId = null;
     if (updatedData.startDate !== undefined) apiPayload.startDate = updatedData.startDate || null;
     if (updatedData.completeDate !== undefined) apiPayload.completeDate = updatedData.completeDate || null;
     if (updatedData.completionPercent !== undefined) apiPayload.completionPercent = updatedData.completionPercent;
     if (updatedData.comments !== undefined) apiPayload.comments = updatedData.comments;
     if (updatedData.assignedResourceIds !== undefined) apiPayload.assignedResourceIds = updatedData.assignedResourceIds;
+    if (updatedData.estimatedHours !== undefined) apiPayload.estimatedHours = updatedData.estimatedHours;
+    if (updatedData.actualHours !== undefined) apiPayload.actualHours = updatedData.actualHours;
     const updated = await tasksApi.update(Number(taskId), apiPayload);
     setTasks(prev =>
       prev.map(task => {
@@ -279,7 +298,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return {
           ...task,
           ...mapped,
-          sprintId: updatedData.sprintId ?? mapped.sprintId ?? task.sprintId ?? null,
+          sprintId: null,
+          year: updatedData.year ?? task.year ?? mapped.year ?? toYearMonth(mapped.startDate).year,
+          month: updatedData.month ?? task.month ?? mapped.month ?? toYearMonth(mapped.startDate).month,
           comments: updatedData.comments ?? task.comments ?? '',
           completionPercent: updatedData.completionPercent ?? task.completionPercent ?? mapped.completionPercent ?? 0,
           completeDate: updatedData.completeDate ?? task.completeDate ?? mapped.completeDate ?? null,
@@ -287,6 +308,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           assignedResourceIds: updatedData.assignedResourceIds ?? task.assignedResourceIds ?? mapped.assignedResourceIds ?? [],
           priority: updatedData.priority ?? mapped.priority ?? task.priority,
           status: updatedData.status ?? mapped.status ?? task.status,
+          estimatedHours: updatedData.estimatedHours ?? task.estimatedHours ?? mapped.estimatedHours ?? 0,
+          actualHours: updatedData.actualHours ?? task.actualHours ?? mapped.actualHours ?? 0,
         };
       })
     );
@@ -358,43 +381,22 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const addSprint = useCallback((sprintData: Omit<Sprint, 'id'>) => {
-    if (!currentProjectId) {
-      throw new Error('No project selected');
-    }
-    const payload = {
-      name: sprintData.name,
-      startDate: sprintData.startDate || null,
-      endDate: sprintData.endDate || null,
-    };
-    // Fire and forget; the caller should handle errors if needed
-    sprintsApi.create(currentProjectId, payload).then((created: any) => {
-      const newSprint: Sprint = {
-        id: String(created.id),
-        name: created.name,
-        startDate: created.startDate ? new Date(created.startDate).toISOString().split('T')[0] : '',
-        endDate: created.endDate ? new Date(created.endDate).toISOString().split('T')[0] : '',
-      };
-      setSprints(prev => [...prev, newSprint].sort((a,b) => a.name.localeCompare(b.name)));
-    }).catch(err => console.error('Failed to create sprint', err));
+    console.warn('addSprint is deprecated in month-based planning.');
     return { id: `temp-${Date.now()}`, ...sprintData };
-  }, [currentProjectId]);
+  }, []);
 
   const deleteSprint = useCallback((sprintId: string) => {
-    setSprints(prev => prev.filter(s => s.id !== sprintId));
+    console.warn('deleteSprint is deprecated in month-based planning.', sprintId);
     setTasks(prev => prev.map(task => task.sprintId === sprintId ? { ...task, sprintId: null } : task));
-    const numericId = Number(sprintId);
-    if (!Number.isNaN(numericId)) {
-      sprintsApi.remove(numericId).catch(err => console.error('Failed to delete sprint', err));
-    }
   }, []);
 
   const getTasksForSprint = useCallback((sprintId: string | null) => {
-    if (!sprintId) return [];
-    return tasks.filter(task => task.sprintId === sprintId);
-  }, [tasks]);
+    console.warn('getTasksForSprint is deprecated. Use getTasksForMonth instead.');
+    return [];
+  }, []);
 
-  const getBacklogTasks = useCallback(() => {
-    return tasks.filter(task => !task.sprintId);
+  const getTasksForMonth = useCallback((year: number, month: number) => {
+    return tasks.filter(task => task.year === year && task.month === month);
   }, [tasks]);
 
   const importData = useCallback((data: AppData) => {
@@ -441,7 +443,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         addSprint,
         deleteSprint,
         getTasksForSprint,
-        getBacklogTasks,
+        getTasksForMonth,
         addResource,
         updateResource,
         deleteResource,

@@ -6,9 +6,10 @@ interface ModalProps {
   title: string;
   children: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
+  closeOnBackdrop?: boolean;
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'lg' }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'lg', closeOnBackdrop = true }) => {
   if (!isOpen) return null;
 
   const sizeClasses = {
@@ -24,7 +25,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 
   return (
     <div 
       className="fixed inset-0 bg-[#091E42] bg-opacity-60 flex justify-center items-center z-50"
-      onClick={onClose}
+      onClick={() => closeOnBackdrop && onClose()}
     >
       <div
         className={`bg-white rounded-2xl shadow-[var(--shadow-soft)] w-full m-4 p-6 relative border border-[var(--color-border)] ${sizeClasses[size]}`}

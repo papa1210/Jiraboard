@@ -339,7 +339,7 @@ app.post(
   requireAuth,
   asyncHandler(async (req, res) => {
     const user = (req as any).user as AuthUser;
-    const { title, description, projectId, assigneeId, status, priority, dueDate, sprintId, startDate, completeDate, completionPercent, comments, assignedResourceIds } = req.body;
+    const { title, description, projectId, assigneeId, status, priority, dueDate, sprintId, startDate, completeDate, completionPercent, comments, assignedResourceIds, estimatedHours, actualHours } = req.body;
     if (!title || !projectId) return res.status(400).json({ error: "title and projectId are required" });
     await ensureProjectExists(Number(projectId));
     if (!can(user, "task:create")) return res.status(403).json({ error: "Forbidden" });
@@ -358,6 +358,8 @@ app.post(
         completionPercent: typeof completionPercent === "number" ? completionPercent : 0,
         notes: comments || null,
         assignedResourceIds: Array.isArray(assignedResourceIds) ? assignedResourceIds.map(String) : [],
+        estimatedHours: typeof estimatedHours === "number" ? estimatedHours : 0,
+        actualHours: typeof actualHours === "number" ? actualHours : 0,
         createdById: user.sub,
       },
     });
@@ -371,7 +373,7 @@ app.put(
   asyncHandler(async (req, res) => {
     const user = (req as any).user as AuthUser;
     const { id } = req.params;
-    const { title, description, projectId, assigneeId, status, priority, orderIndex, dueDate, sprintId, startDate, completeDate, completionPercent, comments, assignedResourceIds } = req.body;
+    const { title, description, projectId, assigneeId, status, priority, orderIndex, dueDate, sprintId, startDate, completeDate, completionPercent, comments, assignedResourceIds, estimatedHours, actualHours } = req.body;
     const existing = await prisma.task.findUnique({
       where: { id: Number(id) },
       select: { projectId: true, sprintId: true, createdById: true, assignedResourceIds: true },
@@ -409,6 +411,8 @@ app.put(
         completionPercent: completionPercent !== undefined ? completionPercent : undefined,
         notes: comments !== undefined ? comments : undefined,
         assignedResourceIds: assignedResourceIds !== undefined ? (Array.isArray(assignedResourceIds) ? assignedResourceIds.map(String) : []) : undefined,
+        estimatedHours: estimatedHours !== undefined ? estimatedHours : undefined,
+        actualHours: actualHours !== undefined ? actualHours : undefined,
       },
     });
     res.json(task);

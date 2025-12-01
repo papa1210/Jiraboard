@@ -66,6 +66,8 @@ export const tasksApi = {
     completionPercent?: number;
     comments?: string;
     assignedResourceIds?: string[];
+    estimatedHours?: number;
+    actualHours?: number;
   }) => request("/tasks", { method: "POST", body: JSON.stringify(data) }),
   update: (id: number, data: any) =>
     request(`/tasks/${id}`, { method: "PUT", body: JSON.stringify(data) }),

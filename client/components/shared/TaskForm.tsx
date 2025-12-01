@@ -1,20 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { useData } from '../../context/DataContext';
-import { Task, Sprint, Status, Priority, DutyStatus } from '../../types';
+import { Task, Status, Priority, DutyStatus } from '../../types';
 
 interface TaskFormProps {
     initialData: Partial<Task>;
-    sprints: Sprint[];
     onTaskCreated?: () => void;
     onTaskUpdated?: (task: Task) => void;
 }
 
-const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated, onTaskUpdated }) => {
+const yearsOptions = (baseYear: number) => {
+    const range = [];
+    for (let i = baseYear - 1; i <= baseYear + 4; i++) {
+        range.push(i);
+    }
+    return range;
+};
+
+const TaskForm: React.FC<TaskFormProps> = ({ initialData, onTaskCreated, onTaskUpdated }) => {
     const { addTask, resources } = useData();
+    const currentYear = new Date().getFullYear();
     const [formData, setFormData] = useState<Partial<Task>>({
         taskId: '',
         description: '',
         sprintId: null,
+        year: currentYear,
+        month: new Date().getMonth() + 1,
         status: Status.ToDo,
         priority: Priority.No,
         startDate: new Date().toISOString().split('T')[0],
@@ -22,6 +32,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
         completionPercent: 0,
         completeDate: null,
         assignedResourceIds: [],
+        estimatedHours: 0,
+        actualHours: 0,
         ...initialData
     });
     
@@ -30,6 +42,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
             taskId: '',
             description: '',
             sprintId: null,
+            year: currentYear,
+            month: new Date().getMonth() + 1,
             status: Status.ToDo,
             priority: Priority.No,
             startDate: new Date().toISOString().split('T')[0],
@@ -37,6 +51,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
             completionPercent: 0,
             completeDate: null,
             assignedResourceIds: [],
+            estimatedHours: 0,
+            actualHours: 0,
             ...initialData
         });
     }, [initialData]);
@@ -45,6 +61,12 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
         const { name, value } = e.target;
         if (name === 'completionPercent') {
             const numericValue = Math.max(0, Math.min(100, Number(value)));
+            setFormData(prev => ({ ...prev, [name]: numericValue }));
+        } else if (name === 'month' || name === 'year') {
+            const numericValue = Math.max(0, Number(value));
+            setFormData(prev => ({ ...prev, [name]: numericValue }));
+        } else if (name === 'estimatedHours' || name === 'actualHours') {
+            const numericValue = Math.max(0, Number(value));
             setFormData(prev => ({ ...prev, [name]: numericValue }));
         } else if (name === 'completeDate') {
             setFormData(prev => ({ ...prev, [name]: value || null }));
@@ -74,13 +96,21 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
         if (initialData.id) { // Editing existing task
             onTaskUpdated?.(formData as Task);
         } else { // Creating new task
+            const createYear = formData.year || currentYear;
+            const createMonth = formData.month || (new Date().getMonth() + 1);
+            const startDate = formData.startDate || new Date(createYear, createMonth - 1, 1).toISOString().split('T')[0];
             addTask({
                 taskId: formData.taskId!,
                 description: formData.description!,
-                sprintId: formData.sprintId || null,
+                sprintId: null,
+                year: createYear,
+                month: createMonth,
+                startDate,
                 completionPercent: formData.completionPercent ?? 0,
                 priority: formData.priority ?? Priority.No,
                 assignedResourceIds: formData.assignedResourceIds ?? [],
+                estimatedHours: formData.estimatedHours ?? 0,
+                actualHours: formData.actualHours ?? 0,
             });
             onTaskCreated?.();
         }
@@ -132,18 +162,29 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
                      {/* Right Column */}
                     <div className="md:w-1/3 space-y-4">
                         <div>
-                            <label className="block text-sm font-medium" style={{color: '#000'}}>Sprint</label>
-                            <select
-                                name="sprintId"
-                                value={formData.sprintId || ''}
-                                onChange={handleChange}
-                                className="w-full mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
-                            >
-                                <option value="">Backlog</option>
-                                {sprints.map(sprint => (
-                                    <option key={sprint.id} value={sprint.id}>{sprint.name}</option>
-                                ))}
-                            </select>
+                            <label className="block text-sm font-medium" style={{color: '#000'}}>Month / Year</label>
+                            <div className="flex gap-2">
+                                <select
+                                    name="month"
+                                    value={formData.month || new Date().getMonth() + 1}
+                                    onChange={handleChange}
+                                    className="w-1/2 mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                                >
+                                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                                        <option key={m} value={m}>{`Tháng ${m.toString().padStart(2, '0')}`}</option>
+                                    ))}
+                                </select>
+                                <select
+                                    name="year"
+                                    value={formData.year || new Date().getFullYear()}
+                                    onChange={handleChange}
+                                    className="w-1/2 mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                                >
+                                    {yearsOptions(new Date().getFullYear()).map(y => (
+                                        <option key={y} value={y}>{y}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                         <div>
                             <label className="block text-sm font-medium" style={{color: '#000'}}>Status</label>
@@ -179,6 +220,32 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
                                 onChange={handleChange}
                                 className="w-full mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
                             />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-sm font-medium" style={{color: '#000'}}>Estimated Hours</label>
+                                <input
+                                    type="number"
+                                    name="estimatedHours"
+                                    min={0}
+                                    step="0.1"
+                                    value={formData.estimatedHours ?? 0}
+                                    onChange={handleChange}
+                                    className="w-full mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium" style={{color: '#000'}}>Actual Hours</label>
+                                <input
+                                    type="number"
+                                    name="actualHours"
+                                    min={0}
+                                    step="0.1"
+                                    value={formData.actualHours ?? 0}
+                                    onChange={handleChange}
+                                    className="w-full mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                                />
+                            </div>
                         </div>
                         <div>
                             <label className="block text-sm font-medium" style={{color: '#000'}}>Start Date</label>
@@ -259,6 +326,32 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
                             className="w-full mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
                         />
                     </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-sm font-medium" style={{color: '#000'}}>Estimated Hours</label>
+                            <input
+                                type="number"
+                                name="estimatedHours"
+                                min={0}
+                                step="0.1"
+                                value={formData.estimatedHours ?? 0}
+                                onChange={handleChange}
+                                className="w-full mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium" style={{color: '#000'}}>Actual Hours</label>
+                            <input
+                                type="number"
+                                name="actualHours"
+                                min={0}
+                                step="0.1"
+                                value={formData.actualHours ?? 0}
+                                onChange={handleChange}
+                                className="w-full mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                            />
+                        </div>
+                    </div>
                     <div>
                         <label className="block text-sm font-medium" style={{color: '#000'}}>Priority</label>
                         <select
@@ -272,18 +365,29 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, sprints, onTaskCreated
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium" style={{color: '#000'}}>Sprint</label>
-                        <select
-                            name="sprintId"
-                            value={formData.sprintId || ''}
-                            onChange={handleChange}
-                            className="w-full mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
-                        >
-                            <option value="">Backlog</option>
-                            {sprints.map(sprint => (
-                                <option key={sprint.id} value={sprint.id}>{sprint.name}</option>
-                            ))}
-                        </select>
+                        <label className="block text-sm font-medium" style={{color: '#000'}}>Month / Year</label>
+                        <div className="flex gap-2">
+                            <select
+                                name="month"
+                                value={formData.month || new Date().getMonth() + 1}
+                                onChange={handleChange}
+                                className="w-1/2 mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                            >
+                                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                                    <option key={m} value={m}>{`Tháng ${m.toString().padStart(2, '0')}`}</option>
+                                ))}
+                            </select>
+                            <select
+                                name="year"
+                                value={formData.year || new Date().getFullYear()}
+                                onChange={handleChange}
+                                className="w-1/2 mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                            >
+                                {yearsOptions(new Date().getFullYear()).map(y => (
+                                    <option key={y} value={y}>{y}</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium" style={{color: '#000'}}>Complete Date</label>

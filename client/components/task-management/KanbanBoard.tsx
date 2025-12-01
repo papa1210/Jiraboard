@@ -7,14 +7,15 @@ import KanbanColumn from './KanbanColumn';
 import TaskModal from './TaskModal';
 
 interface KanbanBoardProps {
-    sprintId: string;
+    year: number;
+    month: number;
 }
 
-const KanbanBoard: React.FC<KanbanBoardProps> = ({ sprintId }) => {
-    const { getTasksForSprint, updateTask, sprints } = useData();
+const KanbanBoard: React.FC<KanbanBoardProps> = ({ year, month }) => {
+    const { getTasksForMonth, updateTask } = useData();
     const [editingTask, setEditingTask] = useState<Task | null>(null);
 
-    const tasks = getTasksForSprint(sprintId);
+    const tasks = getTasksForMonth(year, month);
 
     const sortTasks = (list: Task[]) => {
         return [...list].sort((a, b) => {
@@ -51,7 +52,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ sprintId }) => {
                     task={editingTask}
                     isOpen={!!editingTask}
                     onClose={() => setEditingTask(null)}
-                    sprints={sprints}
                     onUpdate={(updatedTask) => updateTask(updatedTask.id, updatedTask)}
                 />
             )}

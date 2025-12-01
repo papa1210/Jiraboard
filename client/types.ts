@@ -31,11 +31,15 @@ export interface Task {
   priority: Priority;
   createdAt: string;
   sprintId: string | null;
+  year: number;
+  month: number; // 1-12
   startDate: string;
   comments: string;
   completionPercent: number;
   completeDate: string | null;
   assignedResourceIds: string[];
+  estimatedHours: number;
+  actualHours: number;
 }
 
 export interface Sprint {
