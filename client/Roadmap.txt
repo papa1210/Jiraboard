@@ -37,8 +37,16 @@ Cách dùng:
 
 Dev: docker compose -f docker-compose.dev.yml up --build
 Prod: docker compose -f docker-compose.prod.yml up --build -d
+API Imange: docker compose -f docker-compose.prod.yml build api
 Chạy migrate trong prod (lần đầu): docker compose -f docker-compose.prod.yml run --rm api npx prisma migrate deploy
 Nhớ đặt JWT_SECRET mạnh cho prod và điều chỉnh VITE_API_URL/CORS_ORIGIN nếu đổi host/proxy.
+
+Chạy migrate
+# nếu dùng compose prod:
+docker compose -f docker-compose.prod.yml run --rm api npx prisma migrate deploy
+
+# hoặc dev:
+docker compose -f docker-compose.dev.yml run --rm api npx prisma migrate dev --name add_daily_headcount
 
 5) CI/CD
 - GitHub Actions: lint/test/build; build/push images (API + frontend) to registry (GHCR/Docker Hub).
@@ -59,15 +67,14 @@ Lưu ý: images sẽ build lại trên máy mới; nếu muốn kéo từ regist
 *************************Vận hành*************************
 Tóm tắt vận hành Docker:
 
-Dev stack (hot reload):
+* Dev stack (hot reload):
 
 docker compose -f docker-compose.dev.yml up --build
 API (port 4000), Vite dev server (5173), Postgres (5432) chạy bằng bind-mount code từ host.
 
-Prod stack (bundle, Nginx):
+* Prod stack (bundle, Nginx):
 
-docker compose -f docker-compose.prod.yml build
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml build && docker compose -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.prod.yml run --rm api npx prisma migrate deploy   # lần đầu/sau khi đổi schema
 Frontend trên port 80, API map 4000:4000, Postgres nội bộ.
 

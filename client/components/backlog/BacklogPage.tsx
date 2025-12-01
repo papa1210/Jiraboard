@@ -151,7 +151,7 @@ const BacklogPage: React.FC = () => {
                                                     <th className="p-4 text-left text-sm font-semibold text-[var(--color-text-muted)] tracking-wider">Task ID</th>
                                                     <th className="p-4 text-left text-sm font-semibold text-[var(--color-text-muted)] tracking-wider">Description</th>
                                                     <th className="p-4 text-left text-sm font-semibold text-[var(--color-text-muted)] tracking-wider">Status</th>
-                                                    <th className="p-4 text-left text-sm font-semibold text-[var(--color-text-muted)] tracking-wider">Created At</th>
+                                                    <th className="p-4 text-left text-sm font-semibold text-[var(--color-text-muted)] tracking-wider">Start Date</th>
                                                     <th className="p-4 text-left text-sm font-semibold text-[var(--color-text-muted)] tracking-wider">Actions</th>
                                                 </tr>
                                             </thead>
@@ -184,7 +184,7 @@ const BacklogPage: React.FC = () => {
                                                                 {task.status}
                                                             </span>
                                                         </td>
-                                                        <td className="p-4 whitespace-nowrap text-[#5E6C84]">{new Date(task.createdAt).toLocaleDateString()}</td>
+                                                        <td className="p-4 whitespace-nowrap text-[#5E6C84]">{task.startDate ? new Date(task.startDate).toLocaleDateString('en-GB') : ''}</td>
                                                         <td className="p-4 whitespace-nowrap">
                                                             <button onClick={() => setEditingTask(task)} className="text-[#0052CC] hover:underline mr-4">Edit</button>
                                                             <button onClick={() => handleDelete(task.id)} className="text-accent-red hover:underline">Delete</button>

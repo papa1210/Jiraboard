@@ -3,6 +3,7 @@ import cors from "cors";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "./prisma";
+import { startHeadcountCron } from "./jobs/headcountCron";
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -135,6 +136,9 @@ function can(user: AuthUser, action: string) {
   }
   await loadPermissions();
 })();
+
+// Start cron after initial bootstrap
+startHeadcountCron();
 
 app.get(
   "/",
@@ -577,6 +581,47 @@ app.put(
     });
     await savePermissions(next);
     res.json(next);
+  })
+);
+
+// Reports: headcount variation by month
+app.get(
+  "/reports/headcount",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const monthParam = String(req.query.month || "");
+    if (!/^\d{4}-\d{2}$/.test(monthParam)) {
+      return res.status(400).json({ error: "month must be YYYY-MM" });
+    }
+    const [year, month] = monthParam.split("-").map(Number);
+    const start = new Date(year, month - 1, 1);
+    const end = new Date(year, month, 1);
+    const daysInMonth = new Date(year, month, 0).getDate();
+
+    const rows = await prisma.dailyHeadcount.findMany({
+      where: { date: { gte: start, lt: end } },
+      orderBy: { date: "asc" },
+    });
+
+    const labels = Array.from({ length: daysInMonth }, (_, i) => {
+      const day = String(i + 1).padStart(2, "0");
+      return `${year}-${String(month).padStart(2, "0")}-${day}`;
+    });
+
+    const sites: Array<"PQP_HT" | "MT1"> = ["PQP_HT", "MT1"];
+    const siteSeries = sites.map((site) => {
+      const map = new Map<string, number>();
+      rows
+        .filter((r) => r.site === site)
+        .forEach((r) => {
+          const key = r.date.toISOString().slice(0, 10);
+          map.set(key, r.onDutyCount);
+        });
+      const series = labels.map((l) => map.get(l) ?? 0);
+      return { site, series };
+    });
+
+    res.json({ labels, sites: siteSeries });
   })
 );
 

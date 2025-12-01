@@ -49,7 +49,7 @@ const TaskManagementPage: React.FC = () => {
 
     const formatDate = (value: string | null | undefined) => {
         if (!value) return '';
-        return new Date(value).toLocaleDateString();
+        return new Date(value).toLocaleDateString('en-GB');
     };
 
     const buildReportHtml = (month: number, year: number, monthTasks: Task[]) => {

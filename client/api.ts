@@ -105,3 +105,7 @@ export const permissionsApi = {
   get: () => request("/permissions"),
   update: (data: Record<string, any>) => request("/permissions", { method: "PUT", body: JSON.stringify(data) }),
 };
+
+export const reportsApi = {
+  headcount: (month: string) => request(`/reports/headcount?month=${month}`),
+};

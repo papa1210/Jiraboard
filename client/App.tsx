@@ -7,6 +7,8 @@ import BacklogPage from './components/backlog/BacklogPage';
 import TaskManagementPage from './components/task-management/TaskManagementPage';
 import ResourceManagementPage from './components/resources/ResourceManagementPage';
 import UserAccountsPage from './components/accounts/UserAccountsPage';
+import ReportPage from './components/report/ReportPage';
+import MonthlyReportPage from './components/report/MonthlyReportPage';
 import { DataProvider, useData } from './context/DataContext';
 
 const LoginScreen: React.FC = () => {
@@ -115,6 +117,8 @@ const AppContent: React.FC = () => {
             <Route path="/backlog" element={<BacklogPage />} />
             <Route path="/board" element={<TaskManagementPage />} />
             <Route path="/resources" element={<ResourceManagementPage />} />
+            <Route path="/reports" element={<ReportPage />} />
+            <Route path="/reports/monthly" element={<MonthlyReportPage />} />
             <Route path="/accounts" element={<UserAccountsPage />} />
           </Routes>
         </main>

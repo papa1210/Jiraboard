@@ -55,8 +55,8 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onClick }) => {
             </div>
             <p className="text-sm text-[#5E6C84] line-clamp-2">{task.description}</p>
             <div className="mt-3 text-xs text-[#5E6C84] flex items-center justify-between gap-4">
-                <p>Start Date: {task.startDate ? new Date(task.startDate).toLocaleDateString() : 'Not set'}</p>
-                <p className="ml-auto text-right">Complete Date: {task.completeDate ? new Date(task.completeDate).toLocaleDateString() : 'Not set'}</p>
+                <p>Start Date: {task.startDate ? new Date(task.startDate).toLocaleDateString('en-GB') : 'Not set'}</p>
+                <p className="ml-auto text-right">Complete Date: {task.completeDate ? new Date(task.completeDate).toLocaleDateString('en-GB') : 'Not set'}</p>
             </div>
             <div className="mt-3">
                 <div className="flex justify-between text-xs text-[#5E6C84] mb-1">

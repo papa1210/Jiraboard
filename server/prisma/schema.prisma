@@ -44,6 +44,16 @@ enum Site {
   MT1
 }
 
+model DailyHeadcount {
+  id           Int      @id @default(autoincrement())
+  date         DateTime @db.Date
+  site         Site
+  onDutyCount  Int
+  createdAt    DateTime @default(now())
+
+  @@unique([site, date], name: "daily_headcount_site_date")
+}
+
 model User {
   id            Int            @id @default(autoincrement())
   username      String         @unique
