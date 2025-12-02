@@ -461,6 +461,95 @@ app.get(
 );
 
 app.post(
+  "/tasks/:id/log-hours",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = (req as any).user as AuthUser;
+    if (!can(user, "task:update")) return res.status(403).json({ error: "Forbidden" });
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid task id" });
+    const { date, hours } = req.body || {};
+    const numericHours = Number(hours);
+    if (!date || Number.isNaN(new Date(date).getTime())) return res.status(400).json({ error: "Invalid date" });
+    if (Number.isNaN(numericHours) || numericHours < 0) return res.status(400).json({ error: "hours must be >= 0" });
+
+    const task = await prisma.task.findUnique({ where: { id } });
+    if (!task) return res.status(404).json({ error: "Task not found" });
+
+    const day = new Date(date);
+    const normalizedDate = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+
+    // Upsert log (set absolute hours for that date so user can edit corrections)
+    await prisma.taskActualLog.upsert({
+      where: { task_actual_log_task_date: { taskId: id, date: normalizedDate } },
+      update: { hours: numericHours, createdById: user.sub },
+      create: { taskId: id, date: normalizedDate, hours: numericHours, createdById: user.sub },
+    });
+
+    const total = await prisma.taskActualLog.aggregate({
+      where: { taskId: id },
+      _sum: { hours: true },
+    });
+    const totalHours = total._sum.hours || 0;
+
+    const updated = await prisma.task.update({
+      where: { id },
+      data: { actualHours: totalHours },
+    });
+    res.json(updated);
+  })
+);
+
+app.get(
+  "/tasks/:id/log-hours",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    const dateParam = String(req.query.date || "");
+    if (Number.isNaN(id)) return res.status(400).json({ error: "Invalid task id" });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) return res.status(400).json({ error: "date must be YYYY-MM-DD" });
+    const task = await prisma.task.findUnique({ where: { id }, select: { id: true } });
+    if (!task) return res.status(404).json({ error: "Task not found" });
+    const d = new Date(dateParam);
+    const normalizedDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const log = await prisma.taskActualLog.findUnique({
+      where: { task_actual_log_task_date: { taskId: id, date: normalizedDate } },
+    });
+    res.json({ date: normalizedDate.toISOString().split("T")[0], hours: log?.hours ?? 0 });
+  })
+);
+
+app.get(
+  "/reports/actual-hours",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const monthParam = String(req.query.month || "");
+    if (!/^\d{4}-\d{2}$/.test(monthParam)) {
+      return res.status(400).json({ error: "month must be YYYY-MM" });
+    }
+    const [year, month] = monthParam.split("-").map(Number);
+    const start = new Date(year, month - 1, 1);
+    const end = new Date(year, month, 1);
+    const dayCount = new Date(year, month, 0).getDate();
+    const labels = Array.from({ length: dayCount }, (_, i) => `${String(month).padStart(2, "0")}/${String(i + 1).padStart(2, "0")}`);
+
+    const logs = await prisma.taskActualLog.findMany({
+      where: { date: { gte: start, lt: end } },
+      select: { date: true, hours: true },
+    });
+
+    const map = new Map<number, number>(); // day -> sum
+    logs.forEach(log => {
+      const d = log.date.getDate();
+      map.set(d, (map.get(d) || 0) + log.hours);
+    });
+    const completedByDay = Array.from({ length: dayCount }, (_, i) => map.get(i + 1) || 0);
+
+    res.json({ labels, completedByDay });
+  })
+);
+
+app.post(
   "/tasks/:id/comments",
   requireAuth,
   asyncHandler(async (req, res) => {

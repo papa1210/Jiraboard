@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useData } from '../../context/DataContext';
 import { Status } from '../../types';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
+import { reportsApi } from '../../api';
 
 // FIX: Changed the type of the icon prop from JSX.Element to React.ReactElement.
 const StatCard = ({ title, value, color, icon }: { title: string, value: number, color: string, icon: React.ReactElement }) => (
@@ -40,6 +41,14 @@ const DashboardPage: React.FC = () => {
     const initial = getInitialSelection();
     const [selectedYear, setSelectedYear] = useState<number>(initial.year);
     const [selectedMonth, setSelectedMonth] = useState<number>(initial.month);
+    const [actualReport, setActualReport] = useState<{ labels: string[]; completedByDay: number[] }>({ labels: [], completedByDay: [] });
+
+    useEffect(() => {
+        const monthParam = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
+        reportsApi.actualHours(monthParam)
+            .then((data) => setActualReport({ labels: data.labels || [], completedByDay: data.completedByDay || [] }))
+            .catch(() => setActualReport({ labels: [], completedByDay: [] }));
+    }, [selectedYear, selectedMonth]);
 
     const visibleTasks = useMemo(() => {
         return tasks.filter(task => task.year === selectedYear && task.month === selectedMonth);
@@ -85,26 +94,14 @@ const DashboardPage: React.FC = () => {
 
         const scopedTasks = tasks.filter(t => t.year === selectedYear && t.month === selectedMonth);
 
-        const getWorkDate = (t: typeof tasks[number]) => {
-            if (t.completeDate) return new Date(t.completeDate);
-            if (t.startDate) return new Date(t.startDate);
-            return new Date(t.createdAt);
-        };
-
+        // Scope = sum estimated hours (default 1 if missing)
         const points = scopedTasks.reduce((sum, t) => {
             const pts = typeof t.estimatedHours === 'number' && t.estimatedHours > 0 ? t.estimatedHours : 1;
             return sum + pts;
         }, 0);
 
-        const completedByDay: number[] = days.map(() => 0);
-        scopedTasks.forEach(t => {
-            const workDate = getWorkDate(t);
-            if (workDate.getFullYear() === selectedYear && (workDate.getMonth() + 1) === selectedMonth) {
-                const day = workDate.getDate();
-                const actual = typeof t.actualHours === 'number' && t.actualHours > 0 ? t.actualHours : 0;
-                completedByDay[day - 1] += actual;
-            }
-        });
+        // Completed hours by day from actual-hours report (daily logs)
+        const completedByDay: number[] = days.map((_, idx) => actualReport.completedByDay[idx] ?? 0);
 
         const cumulativeCompleted: number[] = [];
         completedByDay.reduce((acc, curr, idx) => {
@@ -113,7 +110,7 @@ const DashboardPage: React.FC = () => {
             return next;
         }, 0);
 
-        const idealPerDay = points / dayCount;
+        const idealPerDay = points / Math.max(dayCount, 1);
 
         return days.map((day, idx) => {
             const dateLabel = `${String(selectedMonth).padStart(2, '0')}/${String(day).padStart(2, '0')}`;
@@ -128,7 +125,7 @@ const DashboardPage: React.FC = () => {
                 scope: points,
             };
         });
-    }, [tasks, selectedYear, selectedMonth, endDate]);
+    }, [tasks, selectedYear, selectedMonth, endDate, actualReport]);
 
     return (
         <div>

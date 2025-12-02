@@ -21,6 +21,8 @@ interface DataContextType {
   refreshData: () => Promise<void>;
   addTask: (taskData: Omit<Task, 'id' | 'createdAt' | 'status' | 'comments' | 'completionPercent' | 'completeDate' | 'assignedResourceIds'> & { sprintId?: string | null, completionPercent?: number, priority?: Priority, assignedResourceIds?: string[] }) => Promise<void>;
   updateTask: (taskId: string, updatedData: Partial<Task>) => Promise<void>;
+  logActualHours: (taskId: string, hours: number, date: string) => Promise<void>;
+  getLogHours: (taskId: string, date: string) => Promise<number>;
   deleteTask: (taskId:string) => Promise<void>;
   getTasksForMonth: (year: number, month: number) => Task[];
   addResource: (resourceData: Omit<Resource, 'id' | 'status'> & { status?: DutyStatus }) => Promise<Resource>;
@@ -315,6 +317,36 @@ const mapTaskFromApi = useCallback((apiTask: any): Task => {
     );
   }, [mapStatusToApi, mapTaskFromApi]);
 
+  const logActualHours = useCallback(async (taskId: string, hours: number, date: string) => {
+    const numericHours = Math.max(0, Number(hours));
+    if (numericHours <= 0) return;
+    const updated = await tasksApi.logHours(Number(taskId), { date, hours: numericHours });
+    setTasks(prev =>
+      prev.map(task => {
+        if (task.id !== taskId) return task;
+        const mapped = mapTaskFromApi(updated);
+        return {
+          ...task,
+          ...mapped,
+          sprintId: null,
+          year: task.year ?? mapped.year ?? toYearMonth(mapped.startDate).year,
+          month: task.month ?? mapped.month ?? toYearMonth(mapped.startDate).month,
+          comments: task.comments ?? mapped.comments ?? '',
+          assignedResourceIds: task.assignedResourceIds ?? mapped.assignedResourceIds ?? [],
+          priority: task.priority ?? mapped.priority ?? task.priority,
+          status: task.status ?? mapped.status ?? task.status,
+          estimatedHours: task.estimatedHours ?? mapped.estimatedHours ?? 0,
+          actualHours: mapped.actualHours ?? task.actualHours ?? 0,
+        };
+      })
+    );
+  }, [mapTaskFromApi]);
+
+  const getLogHours = useCallback(async (taskId: string, date: string) => {
+    const res = await tasksApi.getLogHours(Number(taskId), date);
+    return typeof res?.hours === 'number' ? res.hours : 0;
+  }, []);
+
   const deleteTask = useCallback(async (taskId: string) => {
     await tasksApi.remove(Number(taskId));
     setTasks(prev => prev.filter(task => task.id !== taskId));
@@ -447,6 +479,8 @@ const mapTaskFromApi = useCallback((apiTask: any): Task => {
         addResource,
         updateResource,
         deleteResource,
+        logActualHours,
+        getLogHours,
         importData,
         exportData,
       }}

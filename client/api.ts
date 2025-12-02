@@ -72,6 +72,10 @@ export const tasksApi = {
   update: (id: number, data: any) =>
     request(`/tasks/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   remove: (id: number) => request(`/tasks/${id}`, { method: "DELETE" }),
+  logHours: (id: number, data: { date: string; hours: number }) =>
+    request(`/tasks/${id}/log-hours`, { method: "POST", body: JSON.stringify(data) }),
+  getLogHours: (id: number, date: string) =>
+    request(`/tasks/${id}/log-hours?date=${date}`),
 };
 
 export const commentsApi = {
@@ -108,4 +112,5 @@ export const permissionsApi = {
 
 export const reportsApi = {
   headcount: (month: string) => request(`/reports/headcount?month=${month}`),
+  actualHours: (month: string) => request(`/reports/actual-hours?month=${month}`),
 };

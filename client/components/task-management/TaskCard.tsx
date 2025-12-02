@@ -1,5 +1,5 @@
 import React from 'react';
-import { Task, Priority } from '../../types';
+import { Task, Priority, Status } from '../../types';
 
 interface TaskCardProps {
     task: Task;
@@ -8,6 +8,16 @@ interface TaskCardProps {
 
 const TaskCard: React.FC<TaskCardProps> = ({ task, onClick }) => {
     const assignedCount = task.assignedResourceIds?.length ?? 0;
+    const progressColor = (() => {
+        switch (task.status) {
+            case Status.Done:
+                return '#36B37E';
+            case Status.InProgress:
+                return '#0D66D0';
+            default:
+                return '#F59E0B';
+        }
+    })();
 
     const renderResourceIndicator = () => {
         if (!assignedCount) return null;
@@ -65,8 +75,11 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onClick }) => {
                 </div>
                 <div className="w-full bg-[#F4F5F7] rounded-full h-2 border border-[#DFE1E6]">
                     <div
-                        className="h-2 rounded-full bg-[#0052CC] transition-all duration-200"
-                        style={{ width: `${Math.min(100, Math.max(0, task.completionPercent ?? 0))}%` }}
+                        className="h-2 rounded-full transition-all duration-200"
+                        style={{
+                            width: `${Math.min(100, Math.max(0, task.completionPercent ?? 0))}%`,
+                            backgroundColor: progressColor,
+                        }}
                     />
                 </div>
             </div>

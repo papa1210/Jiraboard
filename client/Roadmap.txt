@@ -98,6 +98,11 @@ docker push <registry>/jira-client:tag
 Trên máy đích: chỉnh compose dùng image:, pull, rồi up -d.
 
 *********************************************************
+Cách kiểm tra dailyheadcount data
+docker compose -f docker-compose.prod.yml exec db sh -c "psql -U postgres -d task_manager -c '\d \"DailyHeadcount\"'"
+docker compose -f docker-compose.prod.yml exec db sh -c "psql -U postgres -d task_manager -c 'select date, site, \"onDutyCount\" from \"DailyHeadcount\" order by date, site limit 10;'"
+
+**************************************************
 6) Server setup
 - Prepare target machine (LAN/VPS): install Docker/Compose, open ports 80/443 (and 5432 if needed internally).
 - Clone repo or only pull images; run compose with env/secret files; set volumes for DB and backups.

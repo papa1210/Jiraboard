@@ -17,7 +17,7 @@ const yearsOptions = (baseYear: number) => {
 };
 
 const TaskForm: React.FC<TaskFormProps> = ({ initialData, onTaskCreated, onTaskUpdated }) => {
-    const { addTask, resources } = useData();
+    const { addTask, resources, logActualHours, getLogHours } = useData();
     const currentYear = new Date().getFullYear();
     const [formData, setFormData] = useState<Partial<Task>>({
         taskId: '',
@@ -36,6 +36,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, onTaskCreated, onTaskU
         actualHours: 0,
         ...initialData
     });
+    const [logHoursInput, setLogHoursInput] = useState<number>(0);
+    const [logDate, setLogDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
     
     useEffect(() => {
         setFormData({
@@ -55,7 +57,22 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, onTaskCreated, onTaskU
             actualHours: 0,
             ...initialData
         });
-    }, [initialData]);
+        const todayStr = new Date().toISOString().split('T')[0];
+        setLogDate(todayStr);
+        setLogHoursInput(0);
+    }, [initialData, currentYear]);
+
+    useEffect(() => {
+        const load = async () => {
+            if (initialData?.id && logDate) {
+                const hours = await getLogHours(String(initialData.id), logDate);
+                setLogHoursInput(hours);
+            } else {
+                setLogHoursInput(0);
+            }
+        };
+        load();
+    }, [initialData?.id, logDate, getLogHours]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -65,7 +82,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, onTaskCreated, onTaskU
         } else if (name === 'month' || name === 'year') {
             const numericValue = Math.max(0, Number(value));
             setFormData(prev => ({ ...prev, [name]: numericValue }));
-        } else if (name === 'estimatedHours' || name === 'actualHours') {
+        } else if (name === 'estimatedHours') {
             const numericValue = Math.max(0, Number(value));
             setFormData(prev => ({ ...prev, [name]: numericValue }));
         } else if (name === 'completeDate') {
@@ -77,6 +94,15 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, onTaskCreated, onTaskU
         }
     };
 
+    const handleLogHoursChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const numericValue = Math.max(0, Number(e.target.value));
+        setLogHoursInput(numericValue);
+    };
+
+    const handleLogDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setLogDate(e.target.value);
+    };
+
     const handleResourceToggle = (resourceId: string) => {
         setFormData(prev => {
             const current = prev.assignedResourceIds || [];
@@ -86,7 +112,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, onTaskCreated, onTaskU
         });
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.taskId || !formData.description) {
             alert('Task ID and Description are required.');
@@ -94,7 +120,12 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, onTaskCreated, onTaskU
         }
 
         if (initialData.id) { // Editing existing task
-            onTaskUpdated?.(formData as Task);
+            const targetDate = logDate || new Date().toISOString().split('T')[0];
+            if (logHoursInput >= 0) {
+                await logActualHours(String(initialData.id), logHoursInput, targetDate);
+            }
+            const { actualHours, ...rest } = formData;
+            onTaskUpdated?.(rest as Task);
         } else { // Creating new task
             const createYear = formData.year || currentYear;
             const createMonth = formData.month || (new Date().getMonth() + 1);
@@ -110,7 +141,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, onTaskCreated, onTaskU
                 priority: formData.priority ?? Priority.No,
                 assignedResourceIds: formData.assignedResourceIds ?? [],
                 estimatedHours: formData.estimatedHours ?? 0,
-                actualHours: formData.actualHours ?? 0,
+                actualHours: 0,
             });
             onTaskCreated?.();
         }
@@ -120,7 +151,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, onTaskCreated, onTaskU
     const onDutyResources = resources.filter(r => r.status === DutyStatus.OnDuty);
 
     return (
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="max-h-[80vh] overflow-y-auto pr-2">
              {isEditing ? (
                  <div className="flex flex-col md:flex-row gap-6">
                     {/* Left Column */}
@@ -235,18 +266,41 @@ const TaskForm: React.FC<TaskFormProps> = ({ initialData, onTaskCreated, onTaskU
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium" style={{color: '#000'}}>Actual Hours</label>
+                                <label className="block text-sm font-medium" style={{color: '#000'}}>Actual Hours (total)</label>
                                 <input
                                     type="number"
-                                    name="actualHours"
+                                    name="actualHoursDisplay"
                                     min={0}
                                     step="0.1"
                                     value={formData.actualHours ?? 0}
-                                    onChange={handleChange}
-                                    className="w-full mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                                    disabled
+                                    className="w-full mt-1 p-2 bg-gray-100 border border-[#DFE1E6] rounded-md text-black focus:outline-none"
                                 />
                             </div>
                         </div>
+                        {isEditing && (
+                            <div>
+                                <label className="block text-sm font-medium" style={{color: '#000'}}>Set actual hours for date</label>
+                                <div className="flex gap-2 items-center">
+                                    <input
+                                        type="date"
+                                        value={logDate}
+                                        onChange={handleLogDateChange}
+                                        className="w-1/2 mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                                    />
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        step="0.1"
+                                        value={logHoursInput}
+                                        onChange={handleLogHoursChange}
+                                        className="w-1/2 mt-1 p-2 bg-white border border-[#DFE1E6] rounded-md text-black focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                                        placeholder="Hours for this date"
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">Overrides/sets hours for the chosen date; total updates automatically.</p>
+                            </div>
+                        )}
                         <div>
                             <label className="block text-sm font-medium" style={{color: '#000'}}>Start Date</label>
                             <input
