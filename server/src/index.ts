@@ -9,6 +9,12 @@ const app = express();
 const port = process.env.PORT || 4000;
 const jwtSecret = process.env.JWT_SECRET || "dev-secret";
 const corsOrigin = process.env.CORS_ORIGIN || "http://localhost:5173";
+const defaultTimezone = process.env.TZ || "local";
+const normalizeDateOnly = (value?: string) => {
+  const d = value ? new Date(value) : new Date();
+  if (Number.isNaN(d.getTime())) return null;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+};
 
 app.use(
   cors({
@@ -570,6 +576,84 @@ app.get(
     const completedByDay = Array.from({ length: dayCount }, (_, i) => map.get(i + 1) || 0);
 
     res.json({ labels, completedByDay });
+  })
+);
+
+app.get(
+  "/reports/daily",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const dateParam = String(req.query.date || "");
+    const normalized = normalizeDateOnly(dateParam);
+    if (!normalized) return res.status(400).json({ error: "date must be YYYY-MM-DD" });
+
+    const snapshot = await prisma.dailyReportSnapshot.findUnique({
+      where: { date: normalized },
+    });
+    if (!snapshot) return res.json({ date: normalized.toISOString().split("T")[0], reportTasks: [], nextdayTasks: [], generatedById: null, createdAt: null });
+    res.json({
+      date: snapshot.date.toISOString().split("T")[0],
+      reportTasks: snapshot.reportTasks,
+      nextdayTasks: snapshot.nextdayTasks,
+      generatedById: snapshot.generatedById,
+      createdAt: snapshot.createdAt,
+    });
+  })
+);
+
+app.post(
+  "/reports/daily/generate",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = (req as any).user as AuthUser;
+    const dateParam = req.body?.date || req.query?.date || undefined;
+    const targetDate = normalizeDateOnly(dateParam);
+    if (!targetDate) return res.status(400).json({ error: "date must be YYYY-MM-DD" });
+
+    const prevDate = new Date(targetDate);
+    prevDate.setDate(prevDate.getDate() - 1);
+
+    const prev = await prisma.dailyReportSnapshot.findUnique({
+      where: { date: prevDate },
+      select: { nextdayTasks: true },
+    });
+    const prevNextday = Array.isArray(prev?.nextdayTasks) ? prev?.nextdayTasks as any[] : [];
+
+    const activeTasks = await prisma.task.findMany({
+      where: { status: { in: ["IN_PROGRESS", "REVIEW"] } },
+      select: { id: true, title: true, description: true, completionPercent: true, assignedResourceIds: true, priority: true },
+    });
+
+    const mapTask = (t: any) => ({
+      id: t.id,
+      title: t.title,
+      description: t.description || "",
+      completionPercent: typeof t.completionPercent === "number" ? t.completionPercent : 0,
+      priority: t.priority || "MEDIUM",
+      assignedResourceIds: Array.isArray(t.assignedResourceIds) ? t.assignedResourceIds : [],
+    });
+
+    const currentSnapshot = activeTasks.map(mapTask);
+    const nextdaySnapshot = activeTasks.map(t => ({ ...mapTask(t), completionPercent: null }));
+    const prevIds = new Set((prevNextday as any[]).map((t: any) => String(t.id)));
+    const reportTasks = [
+      ...prevNextday,
+      ...currentSnapshot.filter(t => !prevIds.has(String(t.id))),
+    ];
+
+    const saved = await prisma.dailyReportSnapshot.upsert({
+      where: { date: targetDate },
+      update: { reportTasks, nextdayTasks: nextdaySnapshot, generatedById: user.sub },
+      create: { date: targetDate, reportTasks, nextdayTasks: nextdaySnapshot, generatedById: user.sub },
+    });
+
+    res.json({
+      date: saved.date.toISOString().split("T")[0],
+      reportTasks: saved.reportTasks,
+      nextdayTasks: saved.nextdayTasks,
+      generatedById: saved.generatedById,
+      createdAt: saved.createdAt,
+    });
   })
 );
 

@@ -36,12 +36,15 @@ const ReportPage: React.FC = () => {
             Xuất tiến độ cá nhân theo khoảng ngày cho tài khoản đang đăng nhập. Sẽ gắn filter thời gian và xuất file khi triển khai.
           </p>
         </div>
-        <div className="rounded-2xl border border-[var(--color-border)] bg-white p-6 shadow-sm">
+        <Link
+          to="/reports/daily"
+          className="rounded-2xl border border-[var(--color-border)] bg-white p-6 shadow-sm block hover:border-[var(--color-primary)] hover:shadow transition"
+        >
           <h3 className="text-lg font-semibold text-[var(--color-text)]">Báo cáo ngày</h3>
           <p className="text-sm text-[var(--color-text-muted)] mt-2">
-            Ghi nhận tiến độ hôm nay và kế hoạch ngày mai (Today vs Looking ahead). Sẽ bổ sung logic cutoff 17h và xuất file sau.
+            Ghi nhận tiến độ hôm nay và kế hoạch ngày mai (Today vs Looking ahead). Sẽ bổ sung cutoff 17h và export sau.
           </p>
-        </div>
+        </Link>
       </div>
     </div>
   );

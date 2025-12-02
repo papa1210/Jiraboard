@@ -114,4 +114,6 @@ export const reportsApi = {
   headcount: (month: string) => request(`/reports/headcount?month=${month}`),
   actualHours: (month: string) => request(`/reports/actual-hours?month=${month}`),
   scope: (month: string) => request(`/reports/scope?month=${month}`),
+  dailyGet: (date: string) => request(`/reports/daily?date=${date}`),
+  dailyGenerate: (date: string) => request(`/reports/daily/generate`, { method: "POST", body: JSON.stringify({ date }) }),
 };

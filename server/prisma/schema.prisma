@@ -68,6 +68,7 @@ model User {
   comments      Comment[]
   actualLogs    TaskActualLog[] @relation("ActualLogCreatedBy")
   scopeLogs     TaskScopeLog[]  @relation("ScopeLogCreatedBy")
+  dailyReports  DailyReportSnapshot[] @relation("DailyReportGeneratedBy")
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 }
@@ -163,6 +164,17 @@ model TaskScopeLog {
 
   task       Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
   createdBy  User?   @relation("ScopeLogCreatedBy", fields: [createdById], references: [id])
+}
+
+model DailyReportSnapshot {
+  id             Int      @id @default(autoincrement())
+  date           DateTime @db.Date @unique
+  reportTasks    Json
+  nextdayTasks   Json
+  generatedById  Int?
+  createdAt      DateTime @default(now())
+
+  generatedBy    User?    @relation("DailyReportGeneratedBy", fields: [generatedById], references: [id])
 }
 
 model PermissionSetting {
