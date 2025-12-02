@@ -11,6 +11,7 @@ interface DataContextType {
   currentProjectId: number | null;
   setCurrentProjectId: (id: number | null) => void;
   userEmail: string | null;
+  currentUserId: number | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
   currentUserRole: 'SUPV' | 'ENG' | null;
@@ -56,6 +57,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [currentProjectId, setCurrentProjectId] = useState<number | null>(null);
   const [token, setTokenState] = useState<string | null>(() => window.localStorage.getItem('token'));
   const [userEmail, setUserEmail] = useState<string | null>(() => window.localStorage.getItem('userEmail'));
+  const [currentUserId, setCurrentUserId] = useState<number | null>(() => {
+    const stored = window.localStorage.getItem('userId');
+    return stored ? Number(stored) : null;
+  });
   const [isAdmin, setIsAdmin] = useState<boolean>(() => window.localStorage.getItem('isAdmin') === 'true');
   const [currentUserRole, setCurrentUserRole] = useState<'SUPV' | 'ENG' | null>(() => {
     const stored = window.localStorage.getItem('userRole');
@@ -189,11 +194,13 @@ const mapTaskFromApi = useCallback((apiTask: any): Task => {
     const res = await authApi.login(username, password);
     setTokenState(res.token);
     setUserEmail(res.user?.username || username);
+    setCurrentUserId(res.user?.id ?? null);
     setIsAdmin(Boolean(res.user?.isAdmin));
     const roleValue = res.user?.role === 'SUPV' ? 'SUPV' : 'ENG';
     setCurrentUserRole(roleValue);
     window.localStorage.setItem('token', res.token);
     window.localStorage.setItem('userEmail', res.user?.username || username);
+    if (res.user?.id) window.localStorage.setItem('userId', String(res.user.id));
     window.localStorage.setItem('isAdmin', String(Boolean(res.user?.isAdmin)));
     window.localStorage.setItem('userRole', roleValue);
     setAuthToken(res.token);
@@ -223,6 +230,7 @@ const mapTaskFromApi = useCallback((apiTask: any): Task => {
   const logout = useCallback(() => {
     setTokenState(null);
     setUserEmail(null);
+    setCurrentUserId(null);
     setIsAdmin(false);
     setCurrentUserRole(null);
     setTasks([]);
@@ -230,6 +238,7 @@ const mapTaskFromApi = useCallback((apiTask: any): Task => {
     setCurrentProjectId(null);
     window.localStorage.removeItem('token');
     window.localStorage.removeItem('userEmail');
+    window.localStorage.removeItem('userId');
     window.localStorage.removeItem('isAdmin');
     window.localStorage.removeItem('userRole');
     setAuthToken(null);
@@ -461,6 +470,7 @@ const mapTaskFromApi = useCallback((apiTask: any): Task => {
         currentProjectId,
         setCurrentProjectId,
         userEmail,
+        currentUserId,
         isAuthenticated,
         isAdmin,
         currentUserRole,

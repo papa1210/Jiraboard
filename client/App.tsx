@@ -9,6 +9,7 @@ import ResourceManagementPage from './components/resources/ResourceManagementPag
 import UserAccountsPage from './components/accounts/UserAccountsPage';
 import ReportPage from './components/report/ReportPage';
 import MonthlyReportPage from './components/report/MonthlyReportPage';
+import PersonalReportPage from './components/report/PersonalReportPage';
 import DailyReportPage from './components/report/DailyReportPage';
 import { DataProvider, useData } from './context/DataContext';
 
@@ -120,6 +121,7 @@ const AppContent: React.FC = () => {
             <Route path="/resources" element={<ResourceManagementPage />} />
             <Route path="/reports" element={<ReportPage />} />
             <Route path="/reports/monthly" element={<MonthlyReportPage />} />
+            <Route path="/reports/personal" element={<PersonalReportPage />} />
             <Route path="/reports/daily" element={<DailyReportPage />} />
             <Route path="/accounts" element={<UserAccountsPage />} />
           </Routes>

@@ -21,28 +21,34 @@ const ReportPage: React.FC = () => {
         >
           <h3 className="text-lg font-semibold text-[var(--color-text)]">Báo cáo theo tháng</h3>
           <p className="text-sm text-[var(--color-text-muted)] mt-2">
-            Tổng hợp hiệu suất và tiến độ theo từng tháng. Chọn tháng và xuất file.
+            Tổng hợp hiệu suất và tiến độ theo tháng. Chọn tháng và xuất file.
           </p>
         </Link>
+
         <div className="rounded-2xl border border-[var(--color-border)] bg-white p-6 shadow-sm">
           <h3 className="text-lg font-semibold text-[var(--color-text)]">Báo cáo theo tuần trong tháng</h3>
           <p className="text-sm text-[var(--color-text-muted)] mt-2">
-            Theo dõi burnup/burndown và backlog health theo tuần. Chức năng chi tiết sẽ được bật sau.
+            Theo dõi burnup/burndown và backlog health theo tuần. Sẽ bật khi hoàn thiện.
           </p>
         </div>
-        <div className="rounded-2xl border border-[var(--color-border)] bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-[var(--color-text)]">Báo cáo cá nhân (ngày bắt đầu - ngày kết thúc)</h3>
+
+        <Link
+          to="/reports/personal"
+          className="rounded-2xl border border-[var(--color-border)] bg-white p-6 shadow-sm block hover:border-[var(--color-primary)] hover:shadow transition"
+        >
+          <h3 className="text-lg font-semibold text-[var(--color-text)]">Báo cáo cá nhân (handover)</h3>
           <p className="text-sm text-[var(--color-text-muted)] mt-2">
-            Xuất tiến độ cá nhân theo khoảng ngày cho tài khoản đang đăng nhập. Sẽ gắn filter thời gian và xuất file khi triển khai.
+            Xuất handover theo khoảng ngày, chỉ các task bạn được assign. Preview trước khi export Excel.
           </p>
-        </div>
+        </Link>
+
         <Link
           to="/reports/daily"
           className="rounded-2xl border border-[var(--color-border)] bg-white p-6 shadow-sm block hover:border-[var(--color-primary)] hover:shadow transition"
         >
           <h3 className="text-lg font-semibold text-[var(--color-text)]">Báo cáo ngày</h3>
           <p className="text-sm text-[var(--color-text-muted)] mt-2">
-            Ghi nhận tiến độ hôm nay và kế hoạch ngày mai (Today vs Looking ahead). Sẽ bổ sung cutoff 17h và export sau.
+            Ghi nhận tiến độ hôm nay và kế hoạch ngày mai. Có snapshot theo ngày, xem/ghi mới.
           </p>
         </Link>
       </div>
