@@ -67,6 +67,7 @@ model User {
   tasksAssigned Task[]         @relation("TaskAssignee")
   comments      Comment[]
   actualLogs    TaskActualLog[] @relation("ActualLogCreatedBy")
+  scopeLogs     TaskScopeLog[]  @relation("ScopeLogCreatedBy")
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 }
@@ -110,6 +111,7 @@ model Task {
   sprint             Sprint?         @relation(fields: [sprintId], references: [id])
   comments           Comment[]
   actualLogs         TaskActualLog[]
+  scopeLogs          TaskScopeLog[]
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 }
@@ -149,6 +151,18 @@ model TaskActualLog {
   createdBy User?    @relation("ActualLogCreatedBy", fields: [createdById], references: [id])
 
   @@unique([taskId, date], name: "task_actual_log_task_date")
+}
+
+model TaskScopeLog {
+  id          Int      @id @default(autoincrement())
+  taskId      Int
+  date        DateTime @db.Date
+  deltaHours  Int      @default(0)
+  createdById Int?
+  createdAt   DateTime @default(now())
+
+  task       Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdBy  User?   @relation("ScopeLogCreatedBy", fields: [createdById], references: [id])
 }
 
 model PermissionSetting {

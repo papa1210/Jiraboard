@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useData } from '../../context/DataContext';
 import { Status } from '../../types';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, ReferenceDot } from 'recharts';
 import { reportsApi } from '../../api';
 
 // FIX: Changed the type of the icon prop from JSX.Element to React.ReactElement.
@@ -42,13 +42,17 @@ const DashboardPage: React.FC = () => {
     const [selectedYear, setSelectedYear] = useState<number>(initial.year);
     const [selectedMonth, setSelectedMonth] = useState<number>(initial.month);
     const [actualReport, setActualReport] = useState<{ labels: string[]; completedByDay: number[] }>({ labels: [], completedByDay: [] });
+    const [scopeReport, setScopeReport] = useState<{ labels: string[]; scopeByDay: number[]; changes: { day: string; value: number; delta: number }[] }>({ labels: [], scopeByDay: [], changes: [] });
 
     useEffect(() => {
         const monthParam = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
         reportsApi.actualHours(monthParam)
             .then((data) => setActualReport({ labels: data.labels || [], completedByDay: data.completedByDay || [] }))
             .catch(() => setActualReport({ labels: [], completedByDay: [] }));
-    }, [selectedYear, selectedMonth]);
+        reportsApi.scope(monthParam)
+            .then((data) => setScopeReport({ labels: data.labels || [], scopeByDay: data.scopeByDay || [], changes: data.changes || [] }))
+            .catch(() => setScopeReport({ labels: [], scopeByDay: [], changes: [] }));
+    }, [selectedYear, selectedMonth, tasks]);
 
     const visibleTasks = useMemo(() => {
         return tasks.filter(task => task.year === selectedYear && task.month === selectedMonth);
@@ -94,11 +98,19 @@ const DashboardPage: React.FC = () => {
 
         const scopedTasks = tasks.filter(t => t.year === selectedYear && t.month === selectedMonth);
 
-        // Scope = sum estimated hours (default 1 if missing)
-        const points = scopedTasks.reduce((sum, t) => {
+        const scopedFallback = () => scopedTasks.reduce((sum, t) => {
             const pts = typeof t.estimatedHours === 'number' && t.estimatedHours > 0 ? t.estimatedHours : 1;
             return sum + pts;
         }, 0);
+
+        const fallbackTotal = scopedFallback();
+        let scopeSeries: number[];
+        if (scopeReport.scopeByDay.length === dayCount) {
+            const scopeSum = scopeReport.scopeByDay.reduce((a, b) => a + b, 0);
+            scopeSeries = scopeSum >= fallbackTotal ? scopeReport.scopeByDay : Array.from({ length: dayCount }, () => fallbackTotal);
+        } else {
+            scopeSeries = Array.from({ length: dayCount }, () => fallbackTotal);
+        }
 
         // Completed hours by day from actual-hours report (daily logs)
         const completedByDay: number[] = days.map((_, idx) => actualReport.completedByDay[idx] ?? 0);
@@ -110,22 +122,23 @@ const DashboardPage: React.FC = () => {
             return next;
         }, 0);
 
-        const idealPerDay = points / Math.max(dayCount, 1);
+        const idealPerDay = scopeSeries[0] / Math.max(dayCount, 1);
 
         return days.map((day, idx) => {
             const dateLabel = `${String(selectedMonth).padStart(2, '0')}/${String(day).padStart(2, '0')}`;
-            const remaining = Math.max(0, points - (cumulativeCompleted[idx] || 0));
-            const idealRemaining = Math.max(0, points - idealPerDay * (idx + 1));
+            const scope = scopeSeries[idx] ?? scopeSeries[0] ?? 0;
+            const remaining = Math.max(0, scope - (cumulativeCompleted[idx] || 0));
+            const idealRemaining = Math.max(0, (scopeSeries[0] ?? 0) - idealPerDay * (idx + 1));
             const completed = cumulativeCompleted[idx] || 0;
             return {
                 day: dateLabel,
                 remaining,
                 idealRemaining,
                 completed,
-                scope: points,
+                scope,
             };
         });
-    }, [tasks, selectedYear, selectedMonth, endDate, actualReport]);
+    }, [tasks, selectedYear, selectedMonth, endDate, actualReport, scopeReport]);
 
     return (
         <div>
@@ -260,6 +273,9 @@ const DashboardPage: React.FC = () => {
                                 <Legend />
                                 <Line type="monotone" dataKey="remaining" stroke="#0D66D0" strokeWidth={2} dot={false} name="Remaining" />
                                 <Line type="monotone" dataKey="idealRemaining" stroke="#94A3B8" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Ideal" />
+                                {scopeReport.changes.map((c, idx) => (
+                                    <ReferenceDot key={idx} x={c.day} y={c.value} r={3} fill="#a855f7" stroke="none" />
+                                ))}
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
@@ -275,6 +291,9 @@ const DashboardPage: React.FC = () => {
                                     <Legend />
                                     <Line type="monotone" dataKey="completed" stroke="#22C55E" strokeWidth={2} dot={false} name="Completed" />
                                     <Line type="monotone" dataKey="scope" stroke="#F97316" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Scope" />
+                                    {scopeReport.changes.map((c, idx) => (
+                                        <ReferenceDot key={idx} x={c.day} y={c.value} r={3} fill="#a855f7" stroke="none" />
+                                    ))}
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>

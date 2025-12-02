@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ResponsiveContainer, LineChart as ReLineChart, Line as ReLine, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { ResponsiveContainer, LineChart as ReLineChart, Line as ReLine, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceDot } from 'recharts';
 import { useData } from '../../context/DataContext';
 import { Priority, Status, Task } from '../../types';
 import { reportsApi } from '../../api';
@@ -36,7 +36,7 @@ const MonthlyReportPage: React.FC = () => {
       return formatMonthInput(new Date());
     }
   });
-  const { getTasksForMonth, updateTask, tasks } = useData();
+  const { getTasksForMonth, updateTask, tasks, isAuthenticated } = useData();
   const [headcount, setHeadcount] = useState<{ labels: string[]; sites: { site: string; series: number[] }[] }>({ labels: [], sites: [] });
   const [loadingHeadcount, setLoadingHeadcount] = useState(false);
   const [actualReport, setActualReport] = useState<{ labels: string[]; completedByDay: number[] }>({ labels: [], completedByDay: [] });
@@ -44,6 +44,7 @@ const MonthlyReportPage: React.FC = () => {
   const [sortPercent, setSortPercent] = useState<'NONE' | 'ASC' | 'DESC'>('NONE');
   const [exporting, setExporting] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [scopeReport, setScopeReport] = useState<{ labels: string[]; scopeByDay: number[]; changes: { day: string; value: number; delta: number }[] }>({ labels: [], scopeByDay: [], changes: [] });
 
   const summaryRef = useRef<HTMLDivElement>(null);
   const donutRef = useRef<HTMLDivElement>(null);
@@ -52,6 +53,7 @@ const MonthlyReportPage: React.FC = () => {
   const tableRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     const fetchHeadcount = async () => {
       setLoadingHeadcount(true);
       try {
@@ -65,13 +67,21 @@ const MonthlyReportPage: React.FC = () => {
       }
     };
     fetchHeadcount();
-  }, [month]);
+  }, [month, tasks, isAuthenticated]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     reportsApi.actualHours(month)
       .then(data => setActualReport({ labels: data.labels || [], completedByDay: data.completedByDay || [] }))
       .catch(() => setActualReport({ labels: [], completedByDay: [] }));
-  }, [month, tasks]);
+  }, [month, tasks, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    reportsApi.scope(month)
+      .then(data => setScopeReport({ labels: data.labels || [], scopeByDay: data.scopeByDay || [], changes: data.changes || [] }))
+      .catch(() => setScopeReport({ labels: [], scopeByDay: [], changes: [] }));
+  }, [month, tasks, isAuthenticated]);
 
   useEffect(() => {
     try {
@@ -113,10 +123,19 @@ const MonthlyReportPage: React.FC = () => {
     const days = Array.from({ length: dayCount }, (_, i) => i + 1);
     const monthLabel = String(parsed.month).padStart(2, '0');
 
-    const scopePoints = monthlyTasks.reduce((sum, t) => {
+    const scopedFallback = () => monthlyTasks.reduce((sum, t) => {
       const pts = typeof t.estimatedHours === 'number' && t.estimatedHours > 0 ? t.estimatedHours : 1;
       return sum + pts;
     }, 0);
+
+    const fallbackTotal = scopedFallback();
+    let scopeSeries: number[];
+    if (scopeReport.scopeByDay.length === dayCount) {
+      const scopeSum = scopeReport.scopeByDay.reduce((a, b) => a + b, 0);
+      scopeSeries = scopeSum >= fallbackTotal ? scopeReport.scopeByDay : Array.from({ length: dayCount }, () => fallbackTotal);
+    } else {
+      scopeSeries = Array.from({ length: dayCount }, () => fallbackTotal);
+    }
 
     const completedByDay = days.map((_, idx) => actualReport.completedByDay[idx] ?? 0);
 
@@ -127,22 +146,23 @@ const MonthlyReportPage: React.FC = () => {
       return next;
     }, 0);
 
-    const idealPerDay = scopePoints / Math.max(dayCount, 1);
+    const idealPerDay = (scopeSeries[0] ?? 0) / Math.max(dayCount, 1);
 
     return days.map((day, idx) => {
       const dayLabel = `${monthLabel}/${String(day).padStart(2, '0')}`;
-      const completed = Math.min(cumulativeCompleted[idx] || 0, scopePoints);
-      const remaining = Math.max(scopePoints - completed, 0);
-      const idealRemaining = Math.max(scopePoints - idealPerDay * (idx + 1), 0);
+      const scope = scopeSeries[idx] ?? scopeSeries[0] ?? 0;
+      const completed = Math.min(cumulativeCompleted[idx] || 0, scope);
+      const remaining = Math.max(scope - completed, 0);
+      const idealRemaining = Math.max((scopeSeries[0] ?? 0) - idealPerDay * (idx + 1), 0);
       return {
         day: dayLabel,
         remaining,
         idealRemaining,
         completed,
-        scope: scopePoints,
+        scope,
       };
     });
-  }, [monthlyTasks, parsed, daysInMonth, actualReport]);
+  }, [monthlyTasks, parsed, daysInMonth, actualReport, scopeReport]);
 
   const headcountCharts = useMemo(() => {
     return headcount.sites.map(site => {
@@ -336,6 +356,9 @@ const MonthlyReportPage: React.FC = () => {
                     <Legend />
                     <ReLine type="monotone" dataKey="idealRemaining" stroke="#94A3B8" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Ideal" />
                     <ReLine type="monotone" dataKey="remaining" stroke="#0D66D0" strokeWidth={2} dot={false} name="Remaining" />
+                    {scopeReport.changes.map((c, idx) => (
+                      <ReferenceDot key={idx} x={c.day} y={c.value} r={3} fill="#a855f7" stroke="none" />
+                    ))}
                   </ReLineChart>
                 </ResponsiveContainer>
               </div>
@@ -356,6 +379,9 @@ const MonthlyReportPage: React.FC = () => {
                     <Legend />
                     <ReLine type="monotone" dataKey="completed" stroke="#22C55E" strokeWidth={2} dot={false} name="Completed" />
                     <ReLine type="monotone" dataKey="scope" stroke="#F97316" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Scope" />
+                    {scopeReport.changes.map((c, idx) => (
+                      <ReferenceDot key={idx} x={c.day} y={c.value} r={3} fill="#a855f7" stroke="none" />
+                    ))}
                   </ReLineChart>
                 </ResponsiveContainer>
               </div>

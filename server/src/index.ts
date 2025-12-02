@@ -367,6 +367,16 @@ app.post(
         createdById: user.sub,
       },
     });
+    // Log scope creation
+    const scopeDelta = typeof estimatedHours === "number" && estimatedHours > 0 ? estimatedHours : 1;
+    await prisma.taskScopeLog.create({
+      data: {
+        taskId: task.id,
+        date: new Date(),
+        deltaHours: scopeDelta,
+        createdById: user.sub,
+      },
+    });
     res.json(task);
   })
 );
@@ -398,6 +408,7 @@ app.put(
         return res.status(403).json({ error: "Forbidden: cannot change assignees" });
       }
     }
+    const existingTask = await prisma.task.findUnique({ where: { id: Number(id) }, select: { estimatedHours: true } });
     const task = await prisma.task.update({
       where: { id: Number(id) },
       data: {
@@ -419,6 +430,19 @@ app.put(
         actualHours: actualHours !== undefined ? actualHours : undefined,
       },
     });
+    if (estimatedHours !== undefined && existingTask) {
+      const delta = estimatedHours - existingTask.estimatedHours;
+      if (delta !== 0) {
+        await prisma.taskScopeLog.create({
+          data: {
+            taskId: task.id,
+            date: new Date(),
+            deltaHours: delta,
+            createdById: user.sub,
+          },
+        });
+      }
+    }
     res.json(task);
   })
 );
@@ -546,6 +570,54 @@ app.get(
     const completedByDay = Array.from({ length: dayCount }, (_, i) => map.get(i + 1) || 0);
 
     res.json({ labels, completedByDay });
+  })
+);
+
+app.get(
+  "/reports/scope",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const monthParam = String(req.query.month || "");
+    if (!/^\d{4}-\d{2}$/.test(monthParam)) {
+      return res.status(400).json({ error: "month must be YYYY-MM" });
+    }
+    const [year, month] = monthParam.split("-").map(Number);
+    const start = new Date(year, month - 1, 1);
+    const end = new Date(year, month, 1);
+    const dayCount = new Date(year, month, 0).getDate();
+    const labels = Array.from({ length: dayCount }, (_, i) => `${String(month).padStart(2, "0")}/${String(i + 1).padStart(2, "0")}`);
+
+    const baseLogs = await prisma.taskScopeLog.groupBy({
+      by: ["taskId"],
+      _sum: { deltaHours: true },
+      where: { date: { lt: start } },
+    });
+    const baseScope = baseLogs.reduce((acc, l) => acc + (l._sum.deltaHours || 0), 0);
+
+    const logs = await prisma.taskScopeLog.findMany({
+      where: { date: { gte: start, lt: end } },
+      select: { date: true, deltaHours: true },
+    });
+
+    const deltaByDay = new Map<number, number>();
+    logs.forEach(log => {
+      const d = log.date.getDate();
+      deltaByDay.set(d, (deltaByDay.get(d) || 0) + log.deltaHours);
+    });
+
+    const scopeByDay: number[] = [];
+    let current = baseScope;
+    const changes: Array<{ day: string; value: number; delta: number }> = [];
+    for (let i = 1; i <= dayCount; i++) {
+      if (deltaByDay.has(i)) {
+        const delta = deltaByDay.get(i)!;
+        current += delta;
+        changes.push({ day: labels[i - 1], value: current, delta });
+      }
+      scopeByDay.push(current);
+    }
+
+    res.json({ labels, scopeByDay, changes });
   })
 );
 

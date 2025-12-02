@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL;
+const API_BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.origin.includes('localhost') ? 'http://localhost:4000' : window.location.origin);
 
 let authToken: string | null = null;
 
@@ -113,4 +113,5 @@ export const permissionsApi = {
 export const reportsApi = {
   headcount: (month: string) => request(`/reports/headcount?month=${month}`),
   actualHours: (month: string) => request(`/reports/actual-hours?month=${month}`),
+  scope: (month: string) => request(`/reports/scope?month=${month}`),
 };
