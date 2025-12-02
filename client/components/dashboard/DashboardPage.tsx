@@ -98,19 +98,11 @@ const DashboardPage: React.FC = () => {
 
         const scopedTasks = tasks.filter(t => t.year === selectedYear && t.month === selectedMonth);
 
-        const scopedFallback = () => scopedTasks.reduce((sum, t) => {
+        const fallbackTotal = scopedTasks.reduce((sum, t) => {
             const pts = typeof t.estimatedHours === 'number' && t.estimatedHours > 0 ? t.estimatedHours : 1;
             return sum + pts;
         }, 0);
-
-        const fallbackTotal = scopedFallback();
-        let scopeSeries: number[];
-        if (scopeReport.scopeByDay.length === dayCount) {
-            const scopeSum = scopeReport.scopeByDay.reduce((a, b) => a + b, 0);
-            scopeSeries = scopeSum >= fallbackTotal ? scopeReport.scopeByDay : Array.from({ length: dayCount }, () => fallbackTotal);
-        } else {
-            scopeSeries = Array.from({ length: dayCount }, () => fallbackTotal);
-        }
+        const scopeSeries = Array.from({ length: dayCount }, () => fallbackTotal);
 
         // Completed hours by day from actual-hours report (daily logs)
         const completedByDay: number[] = days.map((_, idx) => actualReport.completedByDay[idx] ?? 0);

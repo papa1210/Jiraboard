@@ -123,19 +123,11 @@ const MonthlyReportPage: React.FC = () => {
     const days = Array.from({ length: dayCount }, (_, i) => i + 1);
     const monthLabel = String(parsed.month).padStart(2, '0');
 
-    const scopedFallback = () => monthlyTasks.reduce((sum, t) => {
+    const fallbackTotal = monthlyTasks.reduce((sum, t) => {
       const pts = typeof t.estimatedHours === 'number' && t.estimatedHours > 0 ? t.estimatedHours : 1;
       return sum + pts;
     }, 0);
-
-    const fallbackTotal = scopedFallback();
-    let scopeSeries: number[];
-    if (scopeReport.scopeByDay.length === dayCount) {
-      const scopeSum = scopeReport.scopeByDay.reduce((a, b) => a + b, 0);
-      scopeSeries = scopeSum >= fallbackTotal ? scopeReport.scopeByDay : Array.from({ length: dayCount }, () => fallbackTotal);
-    } else {
-      scopeSeries = Array.from({ length: dayCount }, () => fallbackTotal);
-    }
+    const scopeSeries = Array.from({ length: dayCount }, () => fallbackTotal);
 
     const completedByDay = days.map((_, idx) => actualReport.completedByDay[idx] ?? 0);
 
