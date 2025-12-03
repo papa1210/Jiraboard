@@ -11,6 +11,7 @@ import ReportPage from './components/report/ReportPage';
 import MonthlyReportPage from './components/report/MonthlyReportPage';
 import PersonalReportPage from './components/report/PersonalReportPage';
 import DailyReportPage from './components/report/DailyReportPage';
+import DatabaseManagementPage from './components/database/DatabaseManagementPage';
 import { DataProvider, useData } from './context/DataContext';
 
 const LoginScreen: React.FC = () => {
@@ -123,6 +124,7 @@ const AppContent: React.FC = () => {
             <Route path="/reports/monthly" element={<MonthlyReportPage />} />
             <Route path="/reports/personal" element={<PersonalReportPage />} />
             <Route path="/reports/daily" element={<DailyReportPage />} />
+            <Route path="/database" element={<DatabaseManagementPage />} />
             <Route path="/accounts" element={<UserAccountsPage />} />
           </Routes>
         </main>

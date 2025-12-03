@@ -17,3 +17,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1Ed3mIw_7vS_Ao5wZTNsl_6
    `npm install`
 2. Run the app:
    `npm run dev`
+3. List table in DB
+Chạy thẳng từ host (ví dụ container tên db):
+`docker compose -f docker-compose.prod.yml exec db psql -U postgres -d task_manager -c "\dt"`
+4. View table trong DB

@@ -1,46 +1,9 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useData } from '../../context/DataContext';
 
 const Sidebar: React.FC = () => {
-    const { importData, exportData, projects, currentProjectId, setCurrentProjectId, userEmail, logout, isAdmin } = useData();
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const handleExport = () => {
-        const data = exportData();
-        const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(data, null, 2))}`;
-        const link = document.createElement('a');
-        link.href = jsonString;
-        link.download = `jira-clone-backup-${new Date().toISOString().split('T')[0]}.json`;
-        link.click();
-    };
-
-    const handleImportClick = () => {
-        fileInputRef.current?.click();
-    };
-
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const text = e.target?.result;
-                if (typeof text !== 'string') throw new Error("File content is not a string");
-                const data = JSON.parse(text);
-                if (window.confirm('Are you sure you want to import this data? This will overwrite existing data.')) {
-                    importData(data);
-                    alert('Data imported successfully!');
-                }
-            } catch (error) {
-                console.error('Failed to import data:', error);
-                alert('Failed to import data. Please check the file format.');
-            }
-        };
-        reader.readAsText(file);
-    };
-
+    const { projects, currentProjectId, setCurrentProjectId, userEmail, logout, isAdmin } = useData();
 
     const NavItem = ({ to, icon, label }: { to: string; icon: React.ReactElement; label: string }) => (
         <NavLink
@@ -71,6 +34,7 @@ const Sidebar: React.FC = () => {
                     <NavItem to="/board" icon={<BoardIcon />} label="Board" />
                     <NavItem to="/reports" icon={<ReportIcon />} label="Reports" />
                     <NavItem to="/resources" icon={<TeamIcon />} label="Resources" />
+                    <NavItem to="/database" icon={<DatabaseIcon />} label="Database management" />
                     {isAdmin && <NavItem to="/accounts" icon={<UserIcon />} label="Accounts" />}
                 </nav>
             </div>
@@ -98,13 +62,6 @@ const Sidebar: React.FC = () => {
                         )}
                     </div>
                 )}
-                <button onClick={handleImportClick} className="w-full flex items-center p-3 my-1 rounded-lg text-[var(--color-text)] hover:bg-[var(--color-primary-light)] transition-colors">
-                    <ImportIcon /> <span className="ml-4">Import Data</span>
-                </button>
-                <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
-                <button onClick={handleExport} className="w-full flex items-center p-3 my-1 rounded-lg text-[var(--color-text)] hover:bg-[var(--color-primary-light)] transition-colors">
-                    <ExportIcon /> <span className="ml-4">Export Data</span>
-                </button>
             </div>
         </aside>
     );
@@ -115,8 +72,13 @@ const ListIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-
 const BoardIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" /></svg>;
 const ReportIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19V6m6 13V6m4 13V5a1 1 0 00-1-1H6a1 1 0 00-1 1v14a1 1 0 001 1h12a1 1 0 001-1z" /></svg>;
 const TeamIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-1a4 4 0 00-5-4m0 5v-1a4 4 0 00-3-3.87M17 20H7m0 0H2v-1a4 4 0 015-4m10-4a3 3 0 10-6 0 3 3 0 006 0zm-10 0a3 3 0 10-6 0 3 3 0 006 0z" /></svg>;
-const ImportIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>;
-const ExportIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>;
+const DatabaseIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <ellipse cx="12" cy="5" rx="7" ry="3" strokeWidth="2" />
+        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M5 5v14c0 1.657 3.134 3 7 3s7-1.343 7-3V5" />
+        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M5 12c0 1.657 3.134 3 7 3s7-1.343 7-3" />
+    </svg>
+);
 const UserIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.121 17.804A9 9 0 1112 21a9 9 0 01-6.879-3.196z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 
 export default Sidebar;

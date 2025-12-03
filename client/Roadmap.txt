@@ -74,7 +74,7 @@ API (port 4000), Vite dev server (5173), Postgres (5432) chạy bằng bind-moun
 
 * Prod stack (bundle, Nginx):
 
-docker compose -f docker-compose.prod.yml build && docker compose -f docker-compose.prod.yml up -d
+
 docker compose -f docker-compose.prod.yml run --rm api npx prisma migrate deploy   # lần đầu/sau khi đổi schema
 Frontend trên port 80, API map 4000:4000, Postgres nội bộ.
 
@@ -86,6 +86,7 @@ Cập nhật code:
 
 Dev: sửa code trên host, tự reload trong container dev.
 Prod: rebuild images (docker compose -f docker-compose.prod.yml build) rồi up -d để áp dụng.
+Build and Run: docker compose -f docker-compose.prod.yml build && docker compose -f docker-compose.prod.yml up -d
 Environment:
 
 Dev có thể dùng dev-secret; Prod nên đặt JWT_SECRET mạnh, DATABASE_URL/CORS_ORIGIN/VITE_API_URL đúng, qua .env hoặc build arg cho client.
