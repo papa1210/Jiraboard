@@ -4,8 +4,7 @@ import { ResponsiveContainer, LineChart as ReLineChart, Line as ReLine, XAxis, Y
 import { useData } from '../../context/DataContext';
 import { Priority, Status, Task } from '../../types';
 import { reportsApi } from '../../api';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import ExcelJS from 'exceljs';
 import Modal from '../ui/Modal';
 import TaskForm from '../shared/TaskForm';
 
@@ -214,45 +213,63 @@ const MonthlyReportPage: React.FC = () => {
     if (exporting) return;
     setExporting(true);
     try {
-      const doc = new jsPDF('p', 'mm', 'a4');
-      const margin = 10;
-      let y = margin;
-      const addSection = async (ref: React.RefObject<HTMLDivElement>, label?: string) => {
-        if (!ref.current) return;
-        const canvas = await html2canvas(ref.current, { scale: 2 });
-        const imgData = canvas.toDataURL('image/png');
-        const imgProps = doc.getImageProperties(imgData);
-        const pdfWidth = doc.internal.pageSize.getWidth() - margin * 2;
-        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-        if (y + pdfHeight > doc.internal.pageSize.getHeight() - margin) {
-          doc.addPage();
-          y = margin;
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Monthly');
+
+      ws.mergeCells('A1', 'F1');
+      ws.getCell('A1').value = `Monthly report ${title}`;
+      ws.getCell('A1').font = { bold: true, size: 14 };
+      ws.getRow(2).values = [`Exported: ${new Date().toLocaleString()}`];
+      ws.getRow(3).values = [`Project: All`];
+
+      ws.getRow(5).values = ['Summary', '', '', '', '', ''];
+      ws.getRow(5).font = { bold: true };
+      ws.getRow(6).values = ['Total tasks', summary.total];
+      ws.getRow(7).values = ['Done %', `${summary.donePct}%`];
+      ws.getRow(8).values = ['In progress', summary.inProgress];
+      ws.getRow(9).values = ['Priority (Yes)', summary.priorityYes];
+
+      const headerRow = ws.addRow([]);
+      headerRow.commit();
+      const headers = ['Task', 'Description', 'Status', '% Complete', 'Priority', 'Assignees'];
+      ws.addRow(headers);
+      ws.getRow(ws.rowCount).font = { bold: true };
+      filteredTasks.forEach(t => {
+        ws.addRow([
+          t.taskId || t.id,
+          t.description || '-',
+          t.status,
+          `${t.completionPercent ?? 0}%`,
+          t.priority === Priority.Yes ? 'Yes' : 'No',
+          Array.isArray(t.assignedResourceIds) && t.assignedResourceIds.length > 0 ? t.assignedResourceIds.join(', ') : '-',
+        ]);
+      });
+
+      ws.columns = [
+        { key: 'task', width: 20 },
+        { key: 'desc', width: 45 },
+        { key: 'status', width: 15 },
+        { key: 'pct', width: 14 },
+        { key: 'prio', width: 12 },
+        { key: 'assignees', width: 30 },
+      ];
+      ws.eachRow((row, idx) => {
+        if (idx >= 6) {
+          row.alignment = { vertical: 'middle', wrapText: true };
         }
-        if (label) {
-          doc.setFontSize(12);
-          doc.text(label, margin, y);
-          y += 6;
-        }
-        doc.addImage(imgData, 'PNG', margin, y, pdfWidth, pdfHeight);
-        y += pdfHeight + 6;
-      };
+        row.border = {
+          bottom: { style: 'hair', color: { argb: 'FFE5E7EB' } },
+        };
+      });
 
-      doc.setFontSize(14);
-      doc.text(`Monthly report ${title}`, margin, y);
-      y += 8;
-      doc.setFontSize(10);
-      doc.text(`Exported: ${new Date().toLocaleString()}`, margin, y);
-      y += 6;
-      doc.text(`Project: All`, margin, y);
-      y += 8;
-
-      await addSection(summaryRef, 'Summary');
-      await addSection(donutRef, 'Status ratio');
-      await addSection(burndownRef, 'Burndown');
-      await addSection(burnupRef, 'Burnup');
-      await addSection(tableRef, 'Tasks');
-
-      doc.save(`monthly-report-${month}.pdf`);
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `monthly-report-${month}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Export failed', err);
       alert('Export failed. Please try again.');
@@ -267,11 +284,12 @@ const MonthlyReportPage: React.FC = () => {
         <div>
           <button
             onClick={handleBack}
-            className="text-sm text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
+            className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-white px-3 py-2 text-sm text-[var(--color-text)] hover:border-[var(--color-primary)]"
           >
-            ← Back to Reports
+            <span aria-hidden="true">&larr;</span>
+            <span>Back to Reports</span>
           </button>
-          <p className="text-sm text-[var(--color-text-muted)] mt-1">Monthly report</p>
+<p className="text-sm text-[var(--color-text-muted)] mt-1">Monthly report</p>
           <h1 className="text-2xl font-bold text-[var(--color-text)]">{title}</h1>
           <p className="text-sm text-[var(--color-text-muted)]">
             Burndown/Burnup per month, headcount variation, and progress preview. Export will be enabled later.
@@ -289,7 +307,7 @@ const MonthlyReportPage: React.FC = () => {
             disabled={exporting}
             className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-white font-semibold hover:bg-[var(--color-primary-hover)] transition-colors disabled:opacity-60"
           >
-            {exporting ? 'Exporting...' : 'Export PDF'}
+            {exporting ? 'Exporting...' : 'Export Excel'}
           </button>
         </div>
       </div>

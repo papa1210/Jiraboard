@@ -25,13 +25,6 @@ const ReportPage: React.FC = () => {
           </p>
         </Link>
 
-        <div className="rounded-2xl border border-[var(--color-border)] bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-[var(--color-text)]">Báo cáo theo tuần trong tháng</h3>
-          <p className="text-sm text-[var(--color-text-muted)] mt-2">
-            Theo dõi burnup/burndown và backlog health theo tuần. Sẽ bật khi hoàn thiện.
-          </p>
-        </div>
-
         <Link
           to="/reports/personal"
           className="rounded-2xl border border-[var(--color-border)] bg-white p-6 shadow-sm block hover:border-[var(--color-primary)] hover:shadow transition"
