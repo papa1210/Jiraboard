@@ -1,29 +1,29 @@
 Roadmap for migrating from localStorage to a multi-user, dockerized deployment
 
-1) Data + API redesign
+# 1) Data + API redesign*
 - Pick DB (Postgres preferred), define schema (users, projects, tasks, comments, attachments, audit).
 - Design API (REST/GraphQL) with auth (JWT/session) and basic authorization per user/project.
 
-2) Build backend
+# 2) Build backend
 - Create API service (Node/Express/Fastify/Nest) with migrations/seeds (Prisma/Knex).
 - Implement CRUD for tasks/resources + auth (register/login/logout).
 - Add tests (unit for services, integration for API with test DB).
 
-3) Frontend integration
+# 3) Frontend integration
 - Replace localStorage with API calls; state scoped per user.
 - Add auth flows (login/register/logout) and route guards; handle loading/error states.
 - Use env for API base URL (e.g., VITE_API_URL for dev/prod).
 
-4) Dockerization (dev + prod)
+# 4) Dockerization (dev + prod)
 - Dockerfile frontend (build Vite, serve via Nginx) and Dockerfile API (Node runtime).
 - Docker Compose for dev: frontend + api + db, with code volumes and db volume.
 - Compose/stack for prod: build/pull images, persistent volumes, reverse proxy if needed.
 
 Chạy migrate
-# nếu dùng compose prod:
+## nếu dùng compose prod:
 docker compose -f docker-compose.prod.yml run --rm api npx prisma migrate deploy
 
-# hoặc dev:
+## hoặc dev:
 docker compose -f docker-compose.dev.yml run --rm api npx prisma migrate dev --name add_daily_headcount
 *************************Vận hành*************************
 Tóm tắt vận hành Docker:
