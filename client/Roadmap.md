@@ -66,6 +66,20 @@ docker build -f Dockerfile.client -t <registry>/jira-client:tag .
 docker push <registry>/jira-client:tag
 Trên máy đích: chỉnh compose dùng image:, pull, rồi up -d.
 
+# ***********Huong dan import SQL file***************
+# Dừng API để không giữ kết nối
+docker compose -f docker-compose.prod.yml stop api
+
+# Drop và tạo lại DB rỗng
+docker compose -f docker-compose.prod.yml exec db psql -U postgres -c "DROP DATABASE IF EXISTS task_manager;"
+docker compose -f docker-compose.prod.yml exec db psql -U postgres -c "CREATE DATABASE task_manager;"
+
+# Import dump
+type "D:\Project\Jiraboard\dump.sql" | docker compose -f docker-compose.prod.yml exec -T db psql -U postgres -d task_manager
+
+# chạy Prisma studio 
+ docker compose -f docker-compose.dev.yml run --rm -p 5556:5556 api sh -c "npx prisma studio --port 5556 --hostname 0.0.0.0 --browser none"
+http://localhost:5556
 5) CI/CD
 - GitHub Actions: lint/test/build; build/push images (API + frontend) to registry (GHCR/Docker Hub).
 - Tag images by commit/branch; optional deploy job or webhook to server.
