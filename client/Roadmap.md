@@ -83,21 +83,7 @@ http://localhost:5556
 5) CI/CD
 - GitHub Actions: lint/test/build; build/push images (API + frontend) to registry (GHCR/Docker Hub).
 - Tag images by commit/branch; optional deploy job or webhook to server.
-* Dev từ máy này sang máy khác
 
-bạn chỉ cần mang code + file env sang máy mới, rồi chạy compose dev.
-
-Các bước ngắn gọn:
-
-Clone repo sang máy mới.
-Tạo file env (dựa trên .env.example): đặt DATABASE_URL=postgres://postgres:postgres@db:5432/task_manager, VITE_API_URL=http://localhost (line 4000), CORS_ORIGIN=http://localhost (line 5173), JWT_SECRET=dev-secret (hoặc giá trị bạn muốn).
-Chạy: docker compose -f docker-compose.dev.yml up --build.
-Nếu cần schema: trong container api chạy migrate (lần đầu): docker compose -f docker-compose.dev.yml run --rm api npx prisma migrate dev. Hoặc migrate deploy nếu dùng migration sẵn có.
-Dữ liệu DB cũ (volume) không đi cùng repo. Nếu muốn giữ data, dump từ máy cũ (pg_dump) và restore vào db container mới.
-Lưu ý: images sẽ build lại trên máy mới; nếu muốn kéo từ registry thì push/pull trước, còn không thì để compose build.
-
-
-**************************************************
 6) Server setup
 - Prepare target machine (LAN/VPS): install Docker/Compose, open ports 80/443 (and 5432 if needed internally).
 - Clone repo or only pull images; run compose with env/secret files; set volumes for DB and backups.

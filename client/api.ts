@@ -116,4 +116,9 @@ export const reportsApi = {
   scope: (month: string) => request(`/reports/scope?month=${month}`),
   dailyGet: (date: string) => request(`/reports/daily?date=${date}`),
   dailyGenerate: (date: string) => request(`/reports/daily/generate`, { method: "POST", body: JSON.stringify({ date }) }),
+  dailyLookupTask: (taskKey: string) => request(`/reports/daily/task-lookup?taskKey=${encodeURIComponent(taskKey)}`),
+  dailyAddTask: (data: { date: string; taskKey: string; description?: string }) =>
+    request(`/reports/daily/report-tasks/add`, { method: "POST", body: JSON.stringify(data) }),
+  dailyRemoveTask: (data: { date: string; taskId: number | string }) =>
+    request(`/reports/daily/report-tasks/remove`, { method: "POST", body: JSON.stringify(data) }),
 };

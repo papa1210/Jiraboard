@@ -601,6 +601,159 @@ app.get(
   })
 );
 
+const mapSnapshotTask = (t: any) => ({
+  id: t.id,
+  title: t.title,
+  description: t.description || "",
+  completionPercent: typeof t.completionPercent === "number" ? t.completionPercent : 0,
+  priority: t.priority || "MEDIUM",
+  assignedResourceIds: Array.isArray(t.assignedResourceIds) ? t.assignedResourceIds : [],
+});
+
+async function ensureBacklogProject(userId: number) {
+  let project = await prisma.project.findFirst({ orderBy: { createdAt: "asc" } });
+  if (!project) {
+    const keySuffix = Date.now().toString().slice(-4);
+    project = await prisma.project.create({
+      data: { name: "Backlog", key: `BACKLOG-${keySuffix}`, description: "Auto-created backlog project", ownerId: userId },
+    });
+  }
+  return project;
+}
+
+app.get(
+  "/reports/daily/task-lookup",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const taskKey = String(req.query.taskKey || "").trim();
+    if (!taskKey) return res.status(400).json({ error: "taskKey is required" });
+    const numericId = Number(taskKey);
+    const task = await prisma.task.findFirst({
+      where: {
+        OR: [
+          ...(Number.isInteger(numericId) ? [{ id: numericId }] as any[] : []),
+          { title: taskKey },
+        ],
+      },
+      select: { id: true, title: true, description: true, completionPercent: true, assignedResourceIds: true, priority: true },
+    });
+    if (!task) return res.json({ found: false, task: null });
+    return res.json({ found: true, task: mapSnapshotTask(task) });
+  })
+);
+
+app.post(
+  "/reports/daily/report-tasks/add",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = (req as any).user as AuthUser;
+    const dateParam = req.body?.date;
+    const taskKey = String(req.body?.taskKey || "").trim();
+    const description = req.body?.description;
+    const normalized = normalizeDateOnly(dateParam);
+    if (!normalized) return res.status(400).json({ error: "date must be YYYY-MM-DD" });
+    if (!taskKey) return res.status(400).json({ error: "taskKey is required" });
+
+    const numericId = Number(taskKey);
+    const existingTask = await prisma.task.findFirst({
+      where: {
+        OR: [
+          ...(Number.isInteger(numericId) ? [{ id: numericId }] as any[] : []),
+          { title: taskKey },
+        ],
+      },
+      select: { id: true, title: true, description: true, completionPercent: true, assignedResourceIds: true, priority: true },
+    });
+
+    let task = existingTask;
+    if (!task) {
+      const project = await ensureBacklogProject(user.sub);
+      const created = await prisma.task.create({
+        data: {
+          title: taskKey,
+          description: typeof description === "string" ? description : "",
+          projectId: project.id,
+          createdById: user.sub,
+          status: "TODO",
+          priority: "MEDIUM",
+          completionPercent: 0,
+          assignedResourceIds: [],
+        },
+        select: { id: true, title: true, description: true, completionPercent: true, assignedResourceIds: true, priority: true },
+      });
+      task = created;
+    }
+
+    const snapshot = await prisma.dailyReportSnapshot.upsert({
+      where: { date: normalized },
+      update: {},
+      create: { date: normalized, reportTasks: [], nextdayTasks: [], generatedById: user.sub },
+    });
+
+    const nextReportTasks = Array.isArray(snapshot.reportTasks) ? [...(snapshot.reportTasks as any[])] : [];
+    const mapped = mapSnapshotTask(task);
+    const existingIdx = nextReportTasks.findIndex((t: any) => String(t?.id) === String(mapped.id));
+    if (existingIdx >= 0) {
+      nextReportTasks[existingIdx] = { ...nextReportTasks[existingIdx], ...mapped };
+    } else {
+      nextReportTasks.push(mapped);
+    }
+
+    const saved = await prisma.dailyReportSnapshot.update({
+      where: { id: snapshot.id },
+      data: { reportTasks: nextReportTasks, generatedById: user.sub },
+    });
+
+    res.json({
+      snapshot: {
+        date: saved.date.toISOString().split("T")[0],
+        reportTasks: saved.reportTasks,
+        nextdayTasks: saved.nextdayTasks,
+        generatedById: saved.generatedById,
+        createdAt: saved.createdAt,
+      },
+      task: mapped,
+      created: !existingTask,
+    });
+  })
+);
+
+app.post(
+  "/reports/daily/report-tasks/remove",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = (req as any).user as AuthUser;
+    const dateParam = req.body?.date;
+    const taskId = req.body?.taskId;
+    const normalized = normalizeDateOnly(dateParam);
+    if (!normalized) return res.status(400).json({ error: "date must be YYYY-MM-DD" });
+    if (taskId === undefined || taskId === null || taskId === "") return res.status(400).json({ error: "taskId is required" });
+
+    const snapshot = await prisma.dailyReportSnapshot.findUnique({ where: { date: normalized } });
+    if (!snapshot) return res.status(404).json({ error: "Snapshot not found" });
+
+    const filtered = Array.isArray(snapshot.reportTasks)
+      ? (snapshot.reportTasks as any[]).filter(t => String(t?.id) !== String(taskId))
+      : [];
+
+    const saved = await prisma.dailyReportSnapshot.update({
+      where: { id: snapshot.id },
+      data: { reportTasks: filtered, generatedById: user.sub },
+    });
+
+    res.json({
+      snapshot: {
+        date: saved.date.toISOString().split("T")[0],
+        reportTasks: saved.reportTasks,
+        nextdayTasks: saved.nextdayTasks,
+        generatedById: saved.generatedById,
+        createdAt: saved.createdAt,
+      },
+      removed: true,
+    });
+  })
+);
+
 app.post(
   "/reports/daily/generate",
   requireAuth,
@@ -619,11 +772,6 @@ app.post(
     });
     const prevNextday = Array.isArray(prev?.nextdayTasks) ? prev?.nextdayTasks as any[] : [];
 
-    const activeTasks = await prisma.task.findMany({
-      where: { status: { in: ["IN_PROGRESS", "REVIEW"] } },
-      select: { id: true, title: true, description: true, completionPercent: true, assignedResourceIds: true, priority: true },
-    });
-
     const mapTask = (t: any) => ({
       id: t.id,
       title: t.title,
@@ -633,13 +781,36 @@ app.post(
       assignedResourceIds: Array.isArray(t.assignedResourceIds) ? t.assignedResourceIds : [],
     });
 
+    const activeTasks = await prisma.task.findMany({
+      where: { status: { in: ["IN_PROGRESS", "REVIEW"] } },
+      select: { id: true, title: true, description: true, completionPercent: true, assignedResourceIds: true, priority: true },
+    });
+
+    // Refresh actual data (especially completionPercent) for any task that will appear in the report
+    const idsToRefresh = new Set<number>();
+    (prevNextday as any[]).forEach((t: any) => {
+      const idNum = Number(t?.id);
+      if (!Number.isNaN(idNum)) idsToRefresh.add(idNum);
+    });
+    activeTasks.forEach(t => idsToRefresh.add(t.id));
+    const refreshedTasks = idsToRefresh.size
+      ? await prisma.task.findMany({
+          where: { id: { in: Array.from(idsToRefresh) } },
+          select: { id: true, title: true, description: true, completionPercent: true, assignedResourceIds: true, priority: true },
+        })
+      : [];
+    const refreshedMap = new Map<string, ReturnType<typeof mapTask>>(refreshedTasks.map(t => [String(t.id), mapTask(t)]));
+
     const currentSnapshot = activeTasks.map(mapTask);
     const nextdaySnapshot = activeTasks.map(t => ({ ...mapTask(t), completionPercent: null }));
     const prevIds = new Set((prevNextday as any[]).map((t: any) => String(t.id)));
     const reportTasks = [
       ...prevNextday,
       ...currentSnapshot.filter(t => !prevIds.has(String(t.id))),
-    ];
+    ].map(t => {
+      const refreshed = refreshedMap.get(String((t as any).id));
+      return refreshed ? { ...t, ...refreshed } : t;
+    });
 
     const saved = await prisma.dailyReportSnapshot.upsert({
       where: { date: targetDate },

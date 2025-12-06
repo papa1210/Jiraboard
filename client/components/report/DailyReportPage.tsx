@@ -5,7 +5,7 @@ import { reportsApi } from '../../api';
 import { Status, Task } from '../../types';
 
 type SnapshotTask = {
-  id: number;
+  id: number | string;
   title: string;
   description: string;
   completionPercent: number | null;
@@ -26,6 +26,10 @@ const DailyReportPage: React.FC = () => {
     generatedAt: null,
     generatedById: null,
   });
+  const [newTaskId, setNewTaskId] = useState('');
+  const [newTaskDescription, setNewTaskDescription] = useState('');
+  const [lookupState, setLookupState] = useState<{ loading: boolean; found: boolean | null }>({ loading: false, found: null });
+  const [savingTask, setSavingTask] = useState(false);
 
   const fetchSnapshot = async (target: string) => {
     if (!isAuthenticated) return;
@@ -94,6 +98,81 @@ const DailyReportPage: React.FC = () => {
   const onDutyPersonnel = useMemo(() => {
     return resources.filter(r => r.status === 'On Duty' || r.status === 'OnDuty' || r.status === 'On Duty');
   }, [resources]);
+
+  const handleLookup = useMemo(() => {
+    let timer: number | undefined;
+    return (value: string) => {
+      const trimmed = value.trim();
+      if (timer) window.clearTimeout(timer);
+      if (!trimmed) {
+        setLookupState({ loading: false, found: null });
+        setNewTaskDescription('');
+        return;
+      }
+      timer = window.setTimeout(async () => {
+        setLookupState({ loading: true, found: null });
+        try {
+          const res = await reportsApi.dailyLookupTask(trimmed);
+          if (res?.found && res.task) {
+            setNewTaskDescription(res.task.description || '');
+            setLookupState({ loading: false, found: true });
+          } else {
+            setNewTaskDescription('');
+            setLookupState({ loading: false, found: false });
+          }
+        } catch (err) {
+          console.error('Lookup task failed', err);
+          setLookupState({ loading: false, found: null });
+        }
+      }, 300);
+    };
+  }, []);
+
+  const handleAddTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTaskId.trim() || !date || !isAuthenticated) return;
+    setSavingTask(true);
+    try {
+      const res = await reportsApi.dailyAddTask({ date, taskKey: newTaskId.trim(), description: newTaskDescription.trim() || undefined });
+      const snap = res.snapshot || res;
+      setSnapshot({
+        date: snap.date,
+        reportTasks: Array.isArray(snap.reportTasks) ? snap.reportTasks : [],
+        nextdayTasks: Array.isArray(snap.nextdayTasks) ? snap.nextdayTasks : [],
+        generatedAt: snap.createdAt || null,
+        generatedById: snap.generatedById || null,
+      });
+      setNewTaskId('');
+      setNewTaskDescription('');
+      setLookupState({ loading: false, found: null });
+    } catch (err) {
+      console.error('Add task to daily report failed', err);
+      alert('Add task failed. Please try again.');
+    } finally {
+      setSavingTask(false);
+    }
+  };
+
+  const handleRemoveTask = async (taskId: number | string) => {
+    if (!date || !isAuthenticated) return;
+    setSavingTask(true);
+    try {
+      const res = await reportsApi.dailyRemoveTask({ date, taskId });
+      const snap = res.snapshot || res;
+      setSnapshot({
+        date: snap.date,
+        reportTasks: Array.isArray(snap.reportTasks) ? snap.reportTasks : [],
+        nextdayTasks: Array.isArray(snap.nextdayTasks) ? snap.nextdayTasks : [],
+        generatedAt: snap.createdAt || null,
+        generatedById: snap.generatedById || null,
+      });
+    } catch (err) {
+      console.error('Remove task from daily report failed', err);
+      alert('Remove task failed. Please try again.');
+    } finally {
+      setSavingTask(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -167,7 +246,39 @@ const DailyReportPage: React.FC = () => {
 
       <div className="rounded-2xl border border-[var(--color-border)] bg-white p-4 shadow-sm">
         <h3 className="text-base font-semibold text-[var(--color-text)] mb-2">Activities Last 24 Hours (Report task)</h3>
-        <TaskTable tasks={snapshot.reportTasks} resourceNameById={resourceNameById} />
+        <form onSubmit={handleAddTask} className="mb-3 flex flex-col gap-2 md:flex-row md:items-end">
+          <div className="flex-1">
+            <label className="block text-sm text-[var(--color-text-muted)] mb-1">Task ID</label>
+            <input
+              type="text"
+              value={newTaskId}
+              onChange={(e) => {
+                setNewTaskId(e.target.value);
+                handleLookup(e.target.value);
+              }}
+              className="w-full rounded-lg border border-[var(--color-border)] bg-white px-3 py-2 text-[var(--color-text)]"
+              placeholder="e.g. P13463365"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm text-[var(--color-text-muted)] mb-1">Task Description</label>
+            <input
+              type="text"
+              value={newTaskDescription}
+              onChange={(e) => setNewTaskDescription(e.target.value)}
+              className="w-full rounded-lg border border-[var(--color-border)] bg-white px-3 py-2 text-[var(--color-text)]"
+              placeholder="Auto-filled if task exists"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={savingTask || !newTaskId.trim()}
+            className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-white font-semibold hover:bg-[var(--color-primary-hover)] transition-colors disabled:opacity-60"
+          >
+            {savingTask ? 'Saving...' : 'Add task'}
+          </button>
+        </form>
+        <TaskTable tasks={snapshot.reportTasks} resourceNameById={resourceNameById} onRemove={handleRemoveTask} />
       </div>
 
       <div className="rounded-2xl border border-[var(--color-border)] bg-white p-4 shadow-sm">
@@ -178,7 +289,17 @@ const DailyReportPage: React.FC = () => {
   );
 };
 
-const TaskTable = ({ tasks, resourceNameById, showPlannedDash = false }: { tasks: SnapshotTask[]; resourceNameById: Record<string, string>; showPlannedDash?: boolean }) => {
+const TaskTable = ({
+  tasks,
+  resourceNameById,
+  showPlannedDash = false,
+  onRemove,
+}: {
+  tasks: SnapshotTask[];
+  resourceNameById: Record<string, string>;
+  showPlannedDash?: boolean;
+  onRemove?: (taskId: number | string) => void;
+}) => {
   return (
     <div className="overflow-auto max-h-[70vh]">
       <table className="min-w-full text-sm">
@@ -190,26 +311,37 @@ const TaskTable = ({ tasks, resourceNameById, showPlannedDash = false }: { tasks
             <th className="px-3 py-2 text-left font-semibold">% complete</th>
             <th className="px-3 py-2 text-left font-semibold">Priority</th>
             <th className="px-3 py-2 text-left font-semibold">Assignees</th>
+            {onRemove && <th className="px-3 py-2 text-left font-semibold">Action</th>}
           </tr>
         </thead>
         <tbody>
           {tasks.length === 0 && (
-            <tr><td colSpan={6} className="px-3 py-3 text-center text-[var(--color-text-muted)]">No data</td></tr>
+            <tr><td colSpan={onRemove ? 7 : 6} className="px-3 py-3 text-center text-[var(--color-text-muted)]">No data</td></tr>
           )}
           {tasks.map((t, idx) => (
             <tr key={`${t.id}-${idx}`} className="border-t border-[var(--color-border)] align-top">
               <td className="px-3 py-2">{idx + 1}</td>
               <td className="px-3 py-2 font-medium text-[var(--color-text)] whitespace-nowrap">{t.title || t.id}</td>
-              <td className="px-3 py-2 text-[var(--color-text-muted)]">{t.description || '—'}</td>
-              <td className="px-3 py-2">{showPlannedDash ? '—' : `${t.completionPercent ?? 0}%`}</td>
+              <td className="px-3 py-2 text-[var(--color-text-muted)]">{t.description || 'N/A'}</td>
+              <td className="px-3 py-2">{showPlannedDash ? 'N/A' : `${t.completionPercent ?? 0}%`}</td>
               <td className="px-3 py-2">{t.priority || 'MEDIUM'}</td>
               <td className="px-3 py-2 text-[var(--color-text-muted)]">
                 {Array.isArray(t.assignedResourceIds) && t.assignedResourceIds.length > 0
                   ? t.assignedResourceIds
                       .map((id) => resourceNameById[id] || id)
                       .join(', ')
-                  : '—'}
+                  : 'N/A'}
               </td>
+              {onRemove && (
+                <td className="px-3 py-2">
+                  <button
+                    onClick={() => onRemove(t.id)}
+                    className="text-[var(--color-primary)] hover:underline"
+                  >
+                    Remove
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
